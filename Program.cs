@@ -1,6 +1,7 @@
 ﻿using System.Dynamic;
 using System.Linq;
 using System.Text;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using DSharpPlus;
 using DSharpPlus.Entities;
@@ -11,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Qmmands;
 
 namespace FridgeBot {
 	public static class Program {
@@ -41,6 +43,8 @@ namespace FridgeBot {
 						return new DiscordClient(config);
 					});
 
+					isc.AddSingleton<Qmmands.CommandService>();
+
 					isc.ConfigureDbContext<FridgeDbContext>();
 				})
 				.Build();
@@ -58,15 +62,23 @@ namespace FridgeBot {
 				_ = OnReactionRemovedAsync(client, ea);
 				return Task.CompletedTask;
 			};
-			
+
 			discord.MessageCreated += (client, ea) => {
 				_ = OnMessageCreatedAsync(client, ea);
 				return Task.CompletedTask;
-			}
+			};
 			
 			await discord.ConnectAsync();
 
 			await host.RunAsync();
+		}
+
+		private static async Task OnMessageCreatedAsync(DiscordClient discordClient, MessageCreateEventArgs ea) {
+			if (ea.Message.Content.StartsWith(discordClient.CurrentUser.Mention)) {
+				var commands = Host.Services.GetRequiredService<CommandService>();
+				IResult result = await commands.ExecuteAsync(ea.Message.Content[..discordClient.CurrentUser.Mention.Length], new DiscordCommandContext(Host.Services, ea.Message));
+				await ea.Message.RespondAsync(result.ToString());
+			}
 		}
 
 		private static async Task OnReactionAddedAsync(DiscordClient discordClient, MessageReactionAddEventArgs ea) {
