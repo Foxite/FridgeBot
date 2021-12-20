@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using FridgeBot.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace FridgeBot {
