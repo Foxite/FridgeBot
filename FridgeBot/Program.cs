@@ -185,7 +185,7 @@ namespace FridgeBot {
 				var embedBuilder = new DiscordEmbedBuilder() {
 					Author = new DiscordEmbedBuilder.EmbedAuthor() {
 						Name = author.Nickname ?? author.Username,
-						IconUrl = author.GuildAvatarUrl ?? author.AvatarUrl
+						IconUrl = author.AvatarHash == author.GuildAvatarHash ? author.AvatarUrl : author.GuildAvatarUrl
 					},
 					Color = new Optional<DiscordColor>(DiscordColor.Azure),
 					Description = message.Content, // No need to check the length because the max length of a discord message is 4000 with nitro, but the max length of an embed description is 4096.
