@@ -201,14 +201,10 @@ namespace FridgeBot {
 					Url = message.JumpLink.ToString()
 				};
 				
-				string fieldName = "Jump to message";
-				if (fieldName.Length > 255) {
-					fieldName = fieldName[..255];
-				}
-				embedBuilder.AddField(fieldName, $"[Click here to jump]({message.JumpLink})");
+				embedBuilder.AddField("Jump to message", $"[Click here to jump]({message.JumpLink})");
 
 				if (message.ReferencedMessage != null) {
-					fieldName = "Replying to a message from " + replyingToNickname;
+					string fieldName = "Replying to a message from " + replyingToNickname;
 					if (fieldName.Length > 255) {
 						fieldName = fieldName[..255];
 					}
