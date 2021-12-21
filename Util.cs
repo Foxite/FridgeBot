@@ -1,23 +1,19 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace FridgeBot {
-	public static class ServiceProviderExtensions {
+	public static class Util {
 		public static IServiceCollection ConfigureDbContext<TDbContext>(this IServiceCollection isc) where TDbContext : DbContext {
 			isc.AddDbContext<TDbContext>((isp, dbcob) => {
-				var connectionStrings = isp.GetRequiredService<ConnectionStringsConfiguration>();
-				switch (connectionStrings.Mode) {
-					case ConnectionStringsConfiguration.Backend.Sqlite:
-						dbcob.UseSqlite(connectionStrings.GetConnectionString<TDbContext>());
-						break;
-					case ConnectionStringsConfiguration.Backend.Postgres:
-						dbcob.UseNpgsql(connectionStrings.GetConnectionString<TDbContext>());
-						break;
-					default:
-						throw new ArgumentOutOfRangeException(nameof(connectionStrings.Mode));
-				}
-			});
+				ConnectionStringsConfiguration connectionStrings = isp.GetRequiredService<IOptions<ConnectionStringsConfiguration>>().Value;
+				_ = connectionStrings.Mode switch {
+					ConnectionStringsConfiguration.Backend.Sqlite => dbcob.UseSqlite(connectionStrings.GetConnectionString<TDbContext>()),
+					ConnectionStringsConfiguration.Backend.Postgres => dbcob.UseNpgsql(connectionStrings.GetConnectionString<TDbContext>()),
+					//_ => throw new ArgumentOutOfRangeException(nameof(connectionStrings.Mode))
+				};
+			}, ServiceLifetime.Transient);
 			return isc;
 		}
 	}

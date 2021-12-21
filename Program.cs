@@ -48,16 +48,17 @@ namespace FridgeBot {
 					});
 
 					isc.AddSingleton<CommandService>();
-
-					isc.AddDbContext<FridgeDbContext>((isp, dbcob) => {
-						ConnectionStringsConfiguration config = isp.GetRequiredService<IOptions<ConnectionStringsConfiguration>>().Value;
-						string connectionString = config.GetConnectionString<FridgeDbContext>();
-
-						_ = config.Mode switch {
-							ConnectionStringsConfiguration.Backend.Sqlite => dbcob.UseSqlite(connectionString),
-							ConnectionStringsConfiguration.Backend.Postgres => dbcob.UseNpgsql(connectionString),
-						};
-					}, ServiceLifetime.Transient);
+					
+					// isc.AddDbContext<FridgeDbContext>((isp, dbcob) => {
+					// 	ConnectionStringsConfiguration config = isp.GetRequiredService<IOptions<ConnectionStringsConfiguration>>().Value;
+					// 	string connectionString = config.GetConnectionString<FridgeDbContext>();
+					//
+					// 	_ = config.Mode switch {
+					// 		ConnectionStringsConfiguration.Backend.Sqlite => dbcob.UseSqlite(connectionString),
+					// 		ConnectionStringsConfiguration.Backend.Postgres => dbcob.UseNpgsql(connectionString),
+					// 	};
+					// }, ServiceLifetime.Transient);
+					isc.ConfigureDbContext<FridgeDbContext>();
 				})
 				.Build();
 
@@ -105,7 +106,7 @@ namespace FridgeBot {
 				message = await message.Channel.GetMessageAsync(message.Id); // refresh message along with its reactions
 				DiscordReaction? messageReaction = message.Reactions.FirstOrDefault(mr => mr.Emoji.Id == emoji.Id);
 
-				// TODO find a way to skip intermediate discord api calls and update/delete the message directly
+				// TODO find a way to skip intermediate discord api calls and send/update/delete the message directly
 				DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverEmote.Server.ChannelId);
 				FridgeEntry? fridgeEntry = await dbcontext.Entries.Include(entry => entry.Emotes).FirstOrDefaultAsync(entry => entry.ServerId == message.Channel.GuildId && entry.MessageId == message.Id);
 				FridgeEntryEmote? entryEmote = fridgeEntry?.Emotes.FirstOrDefault(fee => fee.EmoteId == emoji.Id);
@@ -141,13 +142,13 @@ namespace FridgeBot {
 						DiscordMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId)!;
 						await fridgeChannel.DeleteMessageAsync(fridgeMessage);
 					} else if (fridgeEntry.FridgeMessageId == 0) {
-						DiscordMessage fridgeMessage = await fridgeChannel.SendMessageAsync(await GetFridgeMessageBuilderAsync(fridgeEntry, message, dbcontext));
+						DiscordMessage fridgeMessage = await fridgeChannel.SendMessageAsync(await GetFridgeMessageBuilderAsync(fridgeEntry, message));
 						fridgeEntry.FridgeMessageId = fridgeMessage.Id;
 						dbcontext.Entries.Add(fridgeEntry);
 					} else {
 						// TODO handle message deletion
 						DiscordMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId)!;
-						await fridgeMessage.ModifyAsync(await GetFridgeMessageBuilderAsync(fridgeEntry, message, dbcontext));
+						await fridgeMessage.ModifyAsync(await GetFridgeMessageBuilderAsync(fridgeEntry, message));
 					}
 				}
 			}
@@ -155,16 +156,31 @@ namespace FridgeBot {
 			await dbcontext.SaveChangesAsync();
 		}
 
-		private static async Task<Action<DiscordMessageBuilder>> GetFridgeMessageBuilderAsync(FridgeEntry entry, DiscordMessage message, FridgeDbContext context) {
+		private static async Task<Action<DiscordMessageBuilder>> GetFridgeMessageBuilderAsync(FridgeEntry entry, DiscordMessage message) {
 			string replyingToNickname = (await message.Channel.Guild.GetMemberAsync(message.ReferencedMessage.Author.Id)).Nickname;
 			return (dmb) => {
 				var author = (DiscordMember) message.Author;
-				
+
+				List<DiscordReaction> reactions = (
+						from reaction in message.Reactions
+						join emote in entry.Emotes on reaction.Emoji.Id equals emote.EmoteId
+						where entry.Emotes.Any(entryEmote => entryEmote.EmoteId == emote.EmoteId)
+						select reaction
+						//message.Reactions
+						//.Join(entry.Emotes, reaction => reaction.Emoji.Id, emote => emote.EmoteId, (reaction, emote) => (reaction, emote))
+						//.Where(tuple => entry.Emotes.Any(emote => emote.EmoteId == tuple.emote.EmoteId))
+						//.Select(tuple => tuple.reaction)
+					)
+					.ToList();
+
 				var content = new StringBuilder();
-				foreach ((DiscordReaction reaction, FridgeEntryEmote emote) in message.Reactions
-					.Join(entry.Emotes, reaction => reaction.Emoji.Id, emote => emote.EmoteId, (reaction, emote) => (reaction, emote))
-					.Where(tuple => entry.Emotes.Any(emote => emote.EmoteId == tuple.emote.EmoteId))
-				) {
+				foreach (DiscordReaction reaction in reactions) {
+					content.Append(reaction.Emoji.ToString());
+				}
+
+				content.AppendLine(" moment in " + message.Channel.Mention + "!");
+				
+				foreach (DiscordReaction reaction in reactions) {
 					content.AppendLine($"{reaction.Count}x {reaction.Emoji.ToString()}");
 				}
 				
@@ -172,8 +188,8 @@ namespace FridgeBot {
 
 				var embedBuilder = new DiscordEmbedBuilder() {
 					Author = new DiscordEmbedBuilder.EmbedAuthor() {
-						Name = author.Nickname,
-						IconUrl = author.GuildAvatarUrl
+						Name = author.Nickname ?? author.Username,
+						IconUrl = author.GuildAvatarUrl ?? author.AvatarUrl
 					},
 					Color = new Optional<DiscordColor>(DiscordColor.Azure),
 					Description = message.Content, // No need to check the length because the max length of a discord message is 4000 with nitro, but the max length of an embed description is 4096.
