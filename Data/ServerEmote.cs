@@ -2,11 +2,11 @@ using System.ComponentModel.DataAnnotations;
 
 namespace FridgeBot {
 	public class ServerEmote {
-		[Key]
+		//[Key] // Composite key specified in dbcontext model builder
 		public ulong EmoteId { get; set; }
-		[Key]
+		//[Key]
 		public ulong ServerId { get; set; }
-		
+
 		public ServerFridge Server { get; set; }
 		
 		/// <summary>

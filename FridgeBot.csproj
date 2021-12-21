@@ -14,7 +14,7 @@
       <PackageReference Include="Foxite.Common" Version="1.5.7" />
       <PackageReference Include="Qmmands" Version="5.0.1" />
       <PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.0" />
-      <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite.Core" Version="6.0.0" />
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="6.0.0" />
       <PackageReference Include="Microsoft.Extensions.Configuration" Version="6.0.0" />
       <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="6.0.0" />
       <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="6.0.0" />
@@ -24,7 +24,14 @@
       <PackageReference Include="Microsoft.Extensions.Logging" Version="6.0.0" />
       <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="6.0.0" />
       <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="6.0.0" />
-      <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="6.0.1" />
+      <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="6.0.0" />
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Update="appsettings.json">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
 </Project>

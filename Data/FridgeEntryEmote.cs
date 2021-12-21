@@ -9,7 +9,7 @@ namespace FridgeBot {
 		[Key] public Guid Id { get; set; }
 		public Guid FridgeEntryId { get; set; }
 		public ulong EmoteId { get; set; }
-		
+
 		public FridgeEntry FridgeEntry { get; set; }
 	}
 }

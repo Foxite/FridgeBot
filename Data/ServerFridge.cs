@@ -11,5 +11,6 @@ namespace FridgeBot {
 		public ulong ChannelId { get; set; }
 		
 		public ICollection<FridgeEntry> FridgeEntries { get; set; }
+		public ICollection<ServerEmote> Emotes { get; set; }
 	}
 }
