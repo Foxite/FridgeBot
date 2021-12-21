@@ -3,9 +3,11 @@ using System.ComponentModel.DataAnnotations;
 namespace FridgeBot {
 	public class ServerEmote {
 		//[Key] // Composite key specified in dbcontext model builder
-		public ulong EmoteId { get; set; }
-		//[Key]
 		public ulong ServerId { get; set; }
+		// For guild emotes, this is the string in the form of <:name:0123456789:> or <a:name:0123456789:>.
+		// For emojis this is the unicode for the emoji.
+		//[Key]
+		public string EmoteString { get; set; }
 
 		public ServerFridge Server { get; set; }
 		

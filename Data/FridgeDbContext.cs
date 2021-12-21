@@ -16,7 +16,7 @@ namespace FridgeBot {
 
 		protected override void OnModelCreating(ModelBuilder modelBuilder) {
 			base.OnModelCreating(modelBuilder);
-			modelBuilder.Entity<ServerEmote>().HasKey(nameof(ServerEmote.ServerId), nameof(ServerEmote.EmoteId));
+			modelBuilder.Entity<ServerEmote>().HasKey(nameof(ServerEmote.ServerId), nameof(ServerEmote.EmoteString));
 		}
 	}
 }

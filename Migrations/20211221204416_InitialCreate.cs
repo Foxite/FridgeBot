@@ -26,14 +26,14 @@ namespace FridgeBot.Migrations
                 name: "Emotes",
                 columns: table => new
                 {
-                    EmoteId = table.Column<ulong>(type: "INTEGER", nullable: false),
                     ServerId = table.Column<ulong>(type: "INTEGER", nullable: false),
+                    EmoteString = table.Column<string>(type: "TEXT", nullable: false),
                     MinimumToAdd = table.Column<int>(type: "INTEGER", nullable: false),
                     MaximumToRemove = table.Column<int>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Emotes", x => new { x.ServerId, x.EmoteId });
+                    table.PrimaryKey("PK_Emotes", x => new { x.ServerId, x.EmoteString });
                     table.ForeignKey(
                         name: "FK_Emotes_Servers_ServerId",
                         column: x => x.ServerId,
@@ -69,7 +69,7 @@ namespace FridgeBot.Migrations
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     FridgeEntryId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    EmoteId = table.Column<ulong>(type: "INTEGER", nullable: false)
+                    EmoteString = table.Column<string>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -94,9 +94,9 @@ namespace FridgeBot.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_FridgeEntryEmote_FridgeEntryId_EmoteId",
+                name: "IX_FridgeEntryEmote_FridgeEntryId_EmoteString",
                 table: "FridgeEntryEmote",
-                columns: new[] { "FridgeEntryId", "EmoteId" },
+                columns: new[] { "FridgeEntryId", "EmoteString" },
                 unique: true);
         }
 

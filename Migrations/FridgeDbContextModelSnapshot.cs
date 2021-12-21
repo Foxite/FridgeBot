@@ -51,15 +51,16 @@ namespace FridgeBot.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<ulong>("EmoteId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("EmoteString")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.Property<Guid>("FridgeEntryId")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("FridgeEntryId", "EmoteId")
+                    b.HasIndex("FridgeEntryId", "EmoteString")
                         .IsUnique();
 
                     b.ToTable("FridgeEntryEmote");
@@ -70,8 +71,8 @@ namespace FridgeBot.Migrations
                     b.Property<ulong>("ServerId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<ulong>("EmoteId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("EmoteString")
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("MaximumToRemove")
                         .HasColumnType("INTEGER");
@@ -79,7 +80,7 @@ namespace FridgeBot.Migrations
                     b.Property<int>("MinimumToAdd")
                         .HasColumnType("INTEGER");
 
-                    b.HasKey("ServerId", "EmoteId");
+                    b.HasKey("ServerId", "EmoteString");
 
                     b.ToTable("Emotes");
                 });
@@ -123,7 +124,7 @@ namespace FridgeBot.Migrations
             modelBuilder.Entity("FridgeBot.ServerEmote", b =>
                 {
                     b.HasOne("FridgeBot.ServerFridge", "Server")
-                        .WithMany()
+                        .WithMany("Emotes")
                         .HasForeignKey("ServerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -138,6 +139,8 @@ namespace FridgeBot.Migrations
 
             modelBuilder.Entity("FridgeBot.ServerFridge", b =>
                 {
+                    b.Navigation("Emotes");
+
                     b.Navigation("FridgeEntries");
                 });
 #pragma warning restore 612, 618

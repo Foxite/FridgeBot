@@ -101,21 +101,22 @@ namespace FridgeBot {
 
 		private static async Task OnReactionModifiedAsync(DiscordClient discordClient, DiscordMessage message, DiscordEmoji emoji, bool added) {
 			using FridgeDbContext dbcontext = Host.Services.GetRequiredService<FridgeDbContext>();
-			ServerEmote? serverEmote = await dbcontext.Emotes.Include(emote => emote.Server).FirstOrDefaultAsync(emote => emote.ServerId == message.Channel.GuildId && emote.EmoteId == emoji.Id);
+			ServerEmote? serverEmote = await dbcontext.Emotes.Include(emote => emote.Server).FirstOrDefaultAsync(emote => emote.ServerId == message.Channel.GuildId && emote.EmoteString == emoji.ToStringInvariant());
 			if (serverEmote != null) {
 				message = await message.Channel.GetMessageAsync(message.Id); // refresh message along with its reactions
-				DiscordReaction? messageReaction = message.Reactions.FirstOrDefault(mr => mr.Emoji.Id == emoji.Id);
+				DiscordReaction? messageReaction = message.Reactions.FirstOrDefault(mr => mr.Emoji.ToStringInvariant() == emoji.ToStringInvariant());
 
 				// TODO find a way to skip intermediate discord api calls and send/update/delete the message directly
 				DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverEmote.Server.ChannelId);
 				FridgeEntry? fridgeEntry = await dbcontext.Entries.Include(entry => entry.Emotes).FirstOrDefaultAsync(entry => entry.ServerId == message.Channel.GuildId && entry.MessageId == message.Id);
-				FridgeEntryEmote? entryEmote = fridgeEntry?.Emotes.FirstOrDefault(fee => fee.EmoteId == emoji.Id);
+				
+				FridgeEntryEmote? entryEmote = fridgeEntry?.Emotes.FirstOrDefault(fee => fee.EmoteString == emoji.ToStringInvariant());
 
 				if (added) {
 					Debug.Assert(messageReaction != null);
 					if (entryEmote == null && messageReaction.Count >= serverEmote.MinimumToAdd) {
 						entryEmote = new FridgeEntryEmote() {
-							EmoteId = emoji.Id
+							EmoteString = emoji.ToStringInvariant()
 						};
 
 						fridgeEntry ??= new FridgeEntry() {
@@ -163,8 +164,8 @@ namespace FridgeBot {
 
 				List<DiscordReaction> reactions = (
 						from reaction in message.Reactions
-						join emote in entry.Emotes on reaction.Emoji.Id equals emote.EmoteId
-						where entry.Emotes.Any(entryEmote => entryEmote.EmoteId == emote.EmoteId)
+						join emote in entry.Emotes on reaction.Emoji.ToStringInvariant() equals emote.EmoteString
+						where entry.Emotes.Any(entryEmote => entryEmote.EmoteString == emote.EmoteString)
 						select reaction
 						//message.Reactions
 						//.Join(entry.Emotes, reaction => reaction.Emoji.Id, emote => emote.EmoteId, (reaction, emote) => (reaction, emote))
@@ -175,13 +176,13 @@ namespace FridgeBot {
 
 				var content = new StringBuilder();
 				foreach (DiscordReaction reaction in reactions) {
-					content.Append(reaction.Emoji.ToString());
+					content.Append(reaction.Emoji.ToString()); // String should not be normalized here because it gets sent to discord, rather than just stored in the database.
 				}
 
 				content.AppendLine(" moment in " + message.Channel.Mention + "!");
 				
 				foreach (DiscordReaction reaction in reactions) {
-					content.AppendLine($"{reaction.Count}x {reaction.Emoji.ToString()}");
+					content.AppendLine($"{reaction.Emoji.ToString()} x{reaction.Count}"); // See above
 				}
 				
 				dmb.Content = content.ToString();

@@ -25,10 +25,10 @@ namespace FridgeBot {
 			if (fridge == null) {
 				return new TextResult("You must use init first", false);
 			} else {
-				ServerEmote? emote = await DbContext.Emotes.FindAsync(Context.Guild.Id, emoji.Id);
+				ServerEmote? emote = await DbContext.Emotes.FindAsync(Context.Guild.Id, emoji.ToStringInvariant());
 				if (emote == null) {
 					emote = new ServerEmote() {
-						EmoteId = emoji.Id,
+						EmoteString = emoji.ToStringInvariant(),
 						Server = fridge
 					};
 					DbContext.Emotes.Add(emote);
@@ -46,7 +46,7 @@ namespace FridgeBot {
 			if (fridge == null) {
 				return new TextResult("You must use init first", false);
 			} else {
-				ServerEmote? emote = await DbContext.Emotes.FindAsync(Context.Guild.Id, emoji.Id);
+				ServerEmote? emote = await DbContext.Emotes.FindAsync(Context.Guild.Id, emoji.ToStringInvariant());
 				if (emote == null) {
 					return new TextResult("Not found", false);
 				} else {
