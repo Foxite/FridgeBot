@@ -1,4 +1,5 @@
-﻿using System.Dynamic;
+﻿using System.Diagnostics;
+using System.Dynamic;
 using System.Linq;
 using System.Text;
 using System.Threading.Channels;
@@ -73,9 +74,8 @@ namespace FridgeBot {
 
 			var discord = host.Services.GetRequiredService<DiscordClient>();
 			
-			discord.MessageReactionAdded += OnReactionAddedAsync;
-
-			discord.MessageReactionRemoved += OnReactionRemovedAsync;
+			discord.MessageReactionAdded += (client, ea) => OnReactionModifiedAsync(client, ea.Message, ea.Emoji, true);
+			discord.MessageReactionRemoved += (client, ea) => OnReactionModifiedAsync(client, ea.Message, ea.Emoji, false);
 
 			discord.MessageCreated += OnMessageCreatedAsync;
 			
@@ -98,95 +98,59 @@ namespace FridgeBot {
 			}
 		}
 
-		private static async Task OnReactionAddedAsync(DiscordClient discordClient, MessageReactionAddEventArgs ea) {
+		private static async Task OnReactionModifiedAsync(DiscordClient discordClient, DiscordMessage message, DiscordEmoji emoji, bool added) {
 			using FridgeDbContext dbcontext = Host.Services.GetRequiredService<FridgeDbContext>();
-			ServerEmote? serverEmote = await dbcontext.Emotes.Include(emote => emote.Server).FirstOrDefaultAsync(emote => emote.ServerId == ea.Guild.Id && emote.EmoteId == ea.Emoji.Id);
-			Console.WriteLine("1 aaa");
+			ServerEmote? serverEmote = await dbcontext.Emotes.Include(emote => emote.Server).FirstOrDefaultAsync(emote => emote.ServerId == message.Channel.GuildId && emote.EmoteId == emoji.Id);
 			if (serverEmote != null) {
-				Console.WriteLine("1 bbb");
-				DiscordMessage message = await ea.Channel.GetMessageAsync(ea.Message.Id); // refresh message along with its reactions
-				DiscordReaction messageReaction = message.Reactions.First(mr => mr.Emoji == ea.Emoji);
-				Console.WriteLine(messageReaction.Count);
-				// TODO find a way to skip intermediate discord api calls and send/update the message directly
-				DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverEmote.Server.ChannelId)!;
-				FridgeEntry? fridgeEntry = await dbcontext.Entries.Include(entry => entry.Emotes).FirstOrDefaultAsync(entry => entry.ServerId == ea.Guild.Id && entry.MessageId == message.Id);
-				FridgeEntryEmote? entryEmote = fridgeEntry?.Emotes.FirstOrDefault(emote => emote.EmoteId == ea.Emoji.Id);
-				if (entryEmote != null || messageReaction.Count >= serverEmote.MinimumToAdd) {
-					if (fridgeEntry != null) {
-						Console.WriteLine("1 ccc");
-						if (entryEmote == null) {
-							Console.WriteLine("1 ddd");
-							fridgeEntry.Emotes.Add(new FridgeEntryEmote() {
-								EmoteId = ea.Emoji.Id
-							});
-						}
+				message = await message.Channel.GetMessageAsync(message.Id); // refresh message along with its reactions
+				DiscordReaction? messageReaction = message.Reactions.FirstOrDefault(mr => mr.Emoji.Id == emoji.Id);
 
-						// TODO handle message deletion
-						DiscordMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId)!;
-						await fridgeMessage.ModifyAsync(await GetFridgeMessageBuilderAsync(fridgeEntry, message, dbcontext));
-					} else {
-						Console.WriteLine("1 eee");
+				// TODO find a way to skip intermediate discord api calls and update/delete the message directly
+				DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverEmote.Server.ChannelId);
+				FridgeEntry? fridgeEntry = await dbcontext.Entries.Include(entry => entry.Emotes).FirstOrDefaultAsync(entry => entry.ServerId == message.Channel.GuildId && entry.MessageId == message.Id);
+				FridgeEntryEmote? entryEmote = fridgeEntry?.Emotes.FirstOrDefault(fee => fee.EmoteId == emoji.Id);
 
-						fridgeEntry = new FridgeEntry() {
-							ChannelId = ea.Channel.Id,
-							MessageId = message.Id,
-							ServerId = ea.Guild.Id,
-							Emotes = new List<FridgeEntryEmote>() {
-								new FridgeEntryEmote() {
-									EmoteId = ea.Emoji.Id
-								}
-							}
+				if (added) {
+					Debug.Assert(messageReaction != null);
+					if (entryEmote == null && messageReaction.Count >= serverEmote.MinimumToAdd) {
+						entryEmote = new FridgeEntryEmote() {
+							EmoteId = emoji.Id
 						};
 
-						DiscordMessage fridgeMessage = await fridgeChannel.SendMessageAsync(await GetFridgeMessageBuilderAsync(fridgeEntry, message, dbcontext));
-
-						fridgeEntry.FridgeMessageId = fridgeMessage.Id;
-
-						dbcontext.Entries.Add(fridgeEntry);
+						fridgeEntry ??= new FridgeEntry() {
+							ChannelId = message.Channel.Id,
+							MessageId = message.Id,
+							ServerId = message.Channel.Guild.Id,
+							Emotes = new List<FridgeEntryEmote>()
+						};
+						
+						fridgeEntry.Emotes.Add(entryEmote);
 					}
-				}
-			}
-
-			Console.WriteLine("1 fff");
-
-			await dbcontext.SaveChangesAsync();
-		}
-
-		private static async Task OnReactionRemovedAsync(DiscordClient discordClient, MessageReactionRemoveEventArgs ea) {
-			using FridgeDbContext dbcontext = Host.Services.GetRequiredService<FridgeDbContext>();
-			ServerEmote? serverEmote = await dbcontext.Emotes.Include(emote => emote.Server).FirstOrDefaultAsync(emote => emote.ServerId == ea.Guild.Id && emote.EmoteId == ea.Emoji.Id);
-			Console.WriteLine("2 aaa");
-			if (serverEmote != null) {
-				Console.WriteLine("2 bbb");
-				DiscordMessage message = await ea.Channel.GetMessageAsync(ea.Message.Id); // refresh message along with its reactions
-				DiscordReaction? messageReaction = message.Reactions.FirstOrDefault(mr => mr.Emoji.Id == ea.Emoji.Id);
-				FridgeEntry? fridgeEntry = await dbcontext.Entries.Include(entry => entry.Emotes).FirstOrDefaultAsync(entry => entry.ServerId == ea.Guild.Id && entry.MessageId == message.Id);
-				// TODO find a way to skip intermediate discord api calls and update/delete the message directly
-				DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverEmote.Server.ChannelId)!;
-				FridgeEntryEmote? entryEmote = fridgeEntry?.Emotes.FirstOrDefault(fee => fee.EmoteId == ea.Emoji.Id);
-				
-				//if ((fridgeEntry == null && messageReaction != null && messageReaction.Count <= serverEmote.MaximumToRemove) || messageReaction == null || fridgeEntry != null) {
-				if (fridgeEntry != null && entryEmote != null) {
-					Console.WriteLine("2 ccc");
-					if (messageReaction == null || messageReaction.Count <= serverEmote.MaximumToRemove) {
+				} else {
+					if (entryEmote != null && (messageReaction == null || messageReaction.Count <= serverEmote.MaximumToRemove)) {
+						Debug.Assert(fridgeEntry != null);
 						fridgeEntry.Emotes.Remove(entryEmote);
 					}
+				}
 
+				if (entryEmote != null) {
+					Debug.Assert(fridgeEntry != null);
 					if (fridgeEntry.Emotes.Count == 0) {
-						Console.WriteLine("2 ddd");
 						dbcontext.Entries.Remove(fridgeEntry);
 						// TODO handle message deletion
 						DiscordMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId)!;
 						await fridgeChannel.DeleteMessageAsync(fridgeMessage);
+					} else if (fridgeEntry.FridgeMessageId == 0) {
+						DiscordMessage fridgeMessage = await fridgeChannel.SendMessageAsync(await GetFridgeMessageBuilderAsync(fridgeEntry, message, dbcontext));
+						fridgeEntry.FridgeMessageId = fridgeMessage.Id;
+						dbcontext.Entries.Add(fridgeEntry);
 					} else {
-						Console.WriteLine("2 eee");
 						// TODO handle message deletion
 						DiscordMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId)!;
 						await fridgeMessage.ModifyAsync(await GetFridgeMessageBuilderAsync(fridgeEntry, message, dbcontext));
 					}
 				}
 			}
-			Console.WriteLine("2 fff");
 
 			await dbcontext.SaveChangesAsync();
 		}
@@ -198,9 +162,9 @@ namespace FridgeBot {
 				
 				var content = new StringBuilder();
 				foreach ((DiscordReaction reaction, FridgeEntryEmote emote) in message.Reactions
-					         .Join(entry.Emotes, reaction => reaction.Emoji.Id, emote => emote.EmoteId, (reaction, emote) => (reaction, emote))
-					         .Where(tuple => entry.Emotes.Any(emote => emote.EmoteId == tuple.emote.EmoteId))
-				         ) {
+					.Join(entry.Emotes, reaction => reaction.Emoji.Id, emote => emote.EmoteId, (reaction, emote) => (reaction, emote))
+					.Where(tuple => entry.Emotes.Any(emote => emote.EmoteId == tuple.emote.EmoteId))
+				) {
 					content.AppendLine($"{reaction.Count}x {reaction.Emoji.ToString()}");
 				}
 				
