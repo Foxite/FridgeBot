@@ -49,15 +49,6 @@ namespace FridgeBot {
 
 					isc.AddSingleton<CommandService>();
 					
-					// isc.AddDbContext<FridgeDbContext>((isp, dbcob) => {
-					// 	ConnectionStringsConfiguration config = isp.GetRequiredService<IOptions<ConnectionStringsConfiguration>>().Value;
-					// 	string connectionString = config.GetConnectionString<FridgeDbContext>();
-					//
-					// 	_ = config.Mode switch {
-					// 		ConnectionStringsConfiguration.Backend.Sqlite => dbcob.UseSqlite(connectionString),
-					// 		ConnectionStringsConfiguration.Backend.Postgres => dbcob.UseNpgsql(connectionString),
-					// 	};
-					// }, ServiceLifetime.Transient);
 					isc.ConfigureDbContext<FridgeDbContext>();
 				})
 				.Build();
@@ -100,10 +91,14 @@ namespace FridgeBot {
 		}
 
 		private static async Task OnReactionModifiedAsync(DiscordClient discordClient, DiscordMessage message, DiscordEmoji emoji, bool added) {
-			using FridgeDbContext dbcontext = Host.Services.GetRequiredService<FridgeDbContext>();
+			message = await message.Channel.GetMessageAsync(message.Id); // refresh message along with its reactions and the author object (the former is outdated and the latter is null for reaction events)
+			if (message.Author.IsCurrent) {
+				return;
+			}
+			
+			await using var dbcontext = Host.Services.GetRequiredService<FridgeDbContext>();
 			ServerEmote? serverEmote = await dbcontext.Emotes.Include(emote => emote.Server).FirstOrDefaultAsync(emote => emote.ServerId == message.Channel.GuildId && emote.EmoteString == emoji.ToStringInvariant());
 			if (serverEmote != null) {
-				message = await message.Channel.GetMessageAsync(message.Id); // refresh message along with its reactions
 				DiscordReaction? messageReaction = message.Reactions.FirstOrDefault(mr => mr.Emoji.ToStringInvariant() == emoji.ToStringInvariant());
 
 				// TODO find a way to skip intermediate discord api calls and send/update/delete the message directly
@@ -158,7 +153,7 @@ namespace FridgeBot {
 		}
 
 		private static async Task<Action<DiscordMessageBuilder>> GetFridgeMessageBuilderAsync(FridgeEntry entry, DiscordMessage message) {
-			string replyingToNickname = (await message.Channel.Guild.GetMemberAsync(message.ReferencedMessage.Author.Id)).Nickname;
+			string? replyingToNickname = message.ReferencedMessage == null ? null : (await message.Channel.Guild.GetMemberAsync(message.ReferencedMessage.Author.Id)).Nickname;
 			return (dmb) => {
 				var author = (DiscordMember) message.Author;
 

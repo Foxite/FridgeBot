@@ -14,6 +14,7 @@ namespace FridgeBot {
 					ConnectionStringsConfiguration.Backend.Postgres => dbcob.UseNpgsql(connectionStrings.GetConnectionString<TDbContext>()),
 					//_ => throw new ArgumentOutOfRangeException(nameof(connectionStrings.Mode))
 				};
+				Console.WriteLine("aaa");
 			}, ServiceLifetime.Transient);
 			return isc;
 		}

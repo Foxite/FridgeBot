@@ -13,9 +13,8 @@ namespace FridgeBot.Migrations
                 name: "Servers",
                 columns: table => new
                 {
-                    Id = table.Column<ulong>(type: "INTEGER", nullable: false)
-                        .Annotation("Sqlite:Autoincrement", true),
-                    ChannelId = table.Column<ulong>(type: "INTEGER", nullable: false)
+                    Id = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
+                    ChannelId = table.Column<decimal>(type: "numeric(20,0)", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -26,10 +25,10 @@ namespace FridgeBot.Migrations
                 name: "Emotes",
                 columns: table => new
                 {
-                    ServerId = table.Column<ulong>(type: "INTEGER", nullable: false),
-                    EmoteString = table.Column<string>(type: "TEXT", nullable: false),
-                    MinimumToAdd = table.Column<int>(type: "INTEGER", nullable: false),
-                    MaximumToRemove = table.Column<int>(type: "INTEGER", nullable: false)
+                    ServerId = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
+                    EmoteString = table.Column<string>(type: "text", nullable: false),
+                    MinimumToAdd = table.Column<int>(type: "integer", nullable: false),
+                    MaximumToRemove = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -46,11 +45,11 @@ namespace FridgeBot.Migrations
                 name: "Entries",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ServerId = table.Column<ulong>(type: "INTEGER", nullable: false),
-                    ChannelId = table.Column<ulong>(type: "INTEGER", nullable: false),
-                    MessageId = table.Column<ulong>(type: "INTEGER", nullable: false),
-                    FridgeMessageId = table.Column<ulong>(type: "INTEGER", nullable: false)
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ServerId = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
+                    ChannelId = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
+                    MessageId = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
+                    FridgeMessageId = table.Column<decimal>(type: "numeric(20,0)", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -67,9 +66,9 @@ namespace FridgeBot.Migrations
                 name: "FridgeEntryEmote",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    FridgeEntryId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    EmoteString = table.Column<string>(type: "TEXT", nullable: false)
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    FridgeEntryId = table.Column<Guid>(type: "uuid", nullable: false),
+                    EmoteString = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {

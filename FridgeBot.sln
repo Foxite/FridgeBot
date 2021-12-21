@@ -1,6 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FridgeBot", "FridgeBot.csproj", "{0F874FFF-E757-4041-9527-2B34EACE8FF9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FridgeBot", "FridgeBot/FridgeBot.csproj", "{0F874FFF-E757-4041-9527-2B34EACE8FF9}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution items", "Solution items", "{53F31E40-2C5F-471F-A0CD-0C6D5E81DA0C}"
+	ProjectSection(SolutionItems) = preProject
+		postgres.env = postgres.env
+		fridgebot.env = fridgebot.env
+		docker-compose.yml = docker-compose.yml
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

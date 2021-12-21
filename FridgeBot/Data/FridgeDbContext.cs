@@ -11,7 +11,10 @@ namespace FridgeBot {
 		public FridgeDbContext(DbContextOptions<FridgeDbContext> dbco) : base(dbco) { }
 
 		protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) {
-			optionsBuilder.UseSqlite("Data Source=fridgebot.db");
+			if (!optionsBuilder.IsConfigured) {
+				// For `dotnet ef`
+				optionsBuilder.UseNpgsql("Host=database; Port=5432; Username=fridgebot; Password=fridgebot");
+			}
 		}
 
 		protected override void OnModelCreating(ModelBuilder modelBuilder) {
