@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FridgeBot {
 	[Index(nameof(ServerId), nameof(ChannelId), nameof(MessageId), IsUnique = true)]
-	[Index(nameof(MessageId))]
+	[Index(nameof(ServerId), nameof(FridgeMessageId), IsUnique = true)]
 	public class FridgeEntry {
 		[Key]
 		public Guid Id { get; set; }

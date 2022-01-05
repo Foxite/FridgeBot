@@ -57,7 +57,6 @@ namespace FridgeBot {
 		}
 
 		protected async override ValueTask AfterExecutedAsync() {
-			Console.WriteLine("3 aaa");
 			await DbContext.SaveChangesAsync();
 		}
 	}
