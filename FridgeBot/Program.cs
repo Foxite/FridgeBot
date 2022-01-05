@@ -128,19 +128,20 @@ namespace FridgeBot {
 				fridgeEntry ??= await dbcontext.Entries.Include(entry => entry.Emotes).FirstOrDefaultAsync(entry => entry.MessageId == message.Id && entry.ServerId == message.Channel.GuildId);
 				
 				FridgeEntryEmote? entryEmote = fridgeEntry?.Emotes.FirstOrDefault(fee => fee.EmoteString == emoji.ToStringInvariant());
+				
+				int count = 0;
+				DiscordReaction? messageReaction = message.Reactions.FirstOrDefault(reaction => reaction.Emoji == emoji);
+				if (messageReaction != null) {
+					count += messageReaction.Count - (messageReaction.IsMe ? 1 : 0);
+				}
+				if (fridgeMessage != null) {
+					DiscordReaction? fridgeMessageReaction = fridgeMessage.Reactions.FirstOrDefault(reaction => reaction.Emoji == emoji);
+					if (fridgeMessageReaction != null) {
+						count += fridgeMessageReaction.Count - (fridgeMessageReaction.IsMe ? 1 : 0);
+					}
+				}
 
 				if (added) {
-					int count = 0;
-					DiscordReaction? reaction = message.Reactions.FirstOrDefault(reaction => reaction.Emoji == emoji);
-					if (reaction != null) {
-						count += reaction.Count - (reaction.IsMe ? 1 : 0);
-					}
-					if (fridgeMessage != null) {
-						DiscordReaction? fridgeMessageReaction = fridgeMessage.Reactions.FirstOrDefault(reaction => reaction.Emoji == emoji);
-						if (fridgeMessageReaction != null) {
-							count += fridgeMessageReaction.Count - (fridgeMessageReaction.IsMe ? 1 : 0);
-						}
-					}
 					if (entryEmote == null && count >= serverEmote.MinimumToAdd) {
 						entryEmote = new FridgeEntryEmote() {
 							EmoteString = emoji.ToStringInvariant()
@@ -156,7 +157,7 @@ namespace FridgeBot {
 						fridgeEntry.Emotes.Add(entryEmote);
 					}
 				} else {
-					if (entryEmote != null && (messageReaction == null || messageReaction.Count <= serverEmote.MaximumToRemove)) {
+					if (entryEmote != null && count <= serverEmote.MaximumToRemove) {
 						Debug.Assert(fridgeEntry != null);
 						fridgeEntry.Emotes.Remove(entryEmote);
 					}
