@@ -125,17 +125,18 @@ namespace FridgeBot {
 			
 			ServerEmote? serverEmote = await dbcontext.Emotes.Include(emote => emote.Server).Where(emote => emote.ServerId == message.Channel.GuildId).FirstOrDefaultAsync(emote => emote.EmoteString == emoji.ToStringInvariant());
 			if (serverEmote != null) {
-				DiscordReaction? messageReaction = message.Reactions.FirstOrDefault(mr => mr.Emoji.ToStringInvariant() == emoji.ToStringInvariant());
-				
 				fridgeEntry ??= await dbcontext.Entries.Include(entry => entry.Emotes).FirstOrDefaultAsync(entry => entry.MessageId == message.Id && entry.ServerId == message.Channel.GuildId);
 				
 				FridgeEntryEmote? entryEmote = fridgeEntry?.Emotes.FirstOrDefault(fee => fee.EmoteString == emoji.ToStringInvariant());
 
 				if (added) {
-					Debug.Assert(messageReaction != null);
-					int count = messageReaction.Count;
+					int count = 0;
+					DiscordReaction? reaction = message.Reactions.FirstOrDefault(reaction => reaction.Emoji == emoji);
+					if (reaction != null) {
+						count += reaction.Count - (reaction.IsMe ? 1 : 0);
+					}
 					if (fridgeMessage != null) {
-						DiscordReaction? fridgeMessageReaction = fridgeMessage.Reactions.FirstOrDefault(reaction => reaction.Emoji == messageReaction.Emoji);
+						DiscordReaction? fridgeMessageReaction = fridgeMessage.Reactions.FirstOrDefault(reaction => reaction.Emoji == emoji);
 						if (fridgeMessageReaction != null) {
 							count += fridgeMessageReaction.Count - (fridgeMessageReaction.IsMe ? 1 : 0);
 						}
