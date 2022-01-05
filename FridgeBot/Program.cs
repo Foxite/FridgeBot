@@ -232,8 +232,17 @@ namespace FridgeBot {
 				var author = (DiscordMember) message.Author;
 
 				var content = new StringBuilder();
+				int i = 0;
 				foreach ((DiscordEmoji? emoji, _) in reactions) {
+					if (i > 0) {
+						if (i == reactions.Count - 1) {
+							content.Append(" & ");
+						} else {
+							content.Append(", ");
+						}
+					}
 					content.Append(emoji.ToString()); // String should not be normalized here because it gets sent to discord, rather than just stored in the database.
+					i++;
 				}
 
 				content.AppendLine(" moment in " + message.Channel.Mention + "!");
