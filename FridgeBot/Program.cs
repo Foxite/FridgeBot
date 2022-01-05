@@ -133,7 +133,7 @@ namespace FridgeBot {
 
 				if (added) {
 					Debug.Assert(messageReaction != null);
-					if (entryEmote == null && messageReaction.Count >= serverEmote.MinimumToAdd) {
+					if (entryEmote == null && messageReaction.Count + fridgeMessage?.Reactions.FirstOrDefault(reaction => reaction.Emoji == messageReaction.Emoji)?.Count >= serverEmote.MinimumToAdd) {
 						entryEmote = new FridgeEntryEmote() {
 							EmoteString = emoji.ToStringInvariant()
 						};
@@ -198,7 +198,7 @@ namespace FridgeBot {
 						List<DiscordEmoji> desiredReactions = fridgeableEmotes.Select(kvp => kvp.Key).ToList();
 						
 						foreach (DiscordEmoji unwantedEmoji in existingReactions.Except(desiredReactions)) {
-							await fridgeMessage.DeleteReactionsEmojiAsync(unwantedEmoji);
+							await fridgeMessage.DeleteOwnReactionAsync(unwantedEmoji);
 						}
 
 						foreach (DiscordEmoji neededEmoji in desiredReactions.Except(existingReactions)) {
