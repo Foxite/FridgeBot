@@ -56,6 +56,8 @@ namespace FridgeBot {
 					isc.AddSingleton<CommandService>();
 					
 					isc.ConfigureDbContext<FridgeDbContext>();
+					
+					isc.AddNotifications().AddDiscord(hbc.Configuration.GetSection("DiscordNotifications"));
 				})
 				.Build();
 
@@ -113,7 +115,9 @@ namespace FridgeBot {
 				if (fridgeEntry != null) {
 					// If it's a reaction on our own fridge message, then treat it as a reaction on the fridged message
 					fridgeMessage = message;
-					message = await message.Channel.GetMessageAsync(fridgeEntry.MessageId);
+					ServerFridge serverFridge = await dbcontext.Servers.FirstAsync(fridge => fridge.Id == message.Channel.GuildId);
+					DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverFridge.ChannelId);
+					message = await fridgeChannel.GetMessageAsync(fridgeEntry.MessageId);
 				} else {
 					// It's our message but does not appear to be a fridge message
 					return;
