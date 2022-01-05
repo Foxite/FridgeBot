@@ -133,7 +133,14 @@ namespace FridgeBot {
 
 				if (added) {
 					Debug.Assert(messageReaction != null);
-					if (entryEmote == null && messageReaction.Count + fridgeMessage?.Reactions.FirstOrDefault(reaction => reaction.Emoji == messageReaction.Emoji)?.Count >= serverEmote.MinimumToAdd) {
+					int count = messageReaction.Count;
+					if (fridgeMessage != null) {
+						DiscordReaction? fridgeMessageReaction = fridgeMessage.Reactions.FirstOrDefault(reaction => reaction.Emoji == messageReaction.Emoji);
+						if (fridgeMessageReaction != null) {
+							count += fridgeMessageReaction.Count - (fridgeMessageReaction.IsMe ? 1 : 0);
+						}
+					}
+					if (entryEmote == null && count >= serverEmote.MinimumToAdd) {
 						entryEmote = new FridgeEntryEmote() {
 							EmoteString = emoji.ToStringInvariant()
 						};
