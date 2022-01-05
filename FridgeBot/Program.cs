@@ -175,8 +175,8 @@ namespace FridgeBot {
 
 						var fridgeableEmotes = new Dictionary<DiscordEmoji, int>();
 						foreach (DiscordReaction reaction in allReactions) {
-							if (!reaction.IsMe && fridgeEntry.Emotes.Any(emote => emote.EmoteString == reaction.Emoji.ToStringInvariant()) && !fridgeableEmotes.TryAdd(reaction.Emoji, reaction.Count)) {
-								fridgeableEmotes[reaction.Emoji] += reaction.Count;
+							if (fridgeEntry.Emotes.Any(emote => emote.EmoteString == reaction.Emoji.ToStringInvariant()) && !fridgeableEmotes.TryAdd(reaction.Emoji, reaction.Count - (reaction.IsMe ? 1 : 0))) {
+								fridgeableEmotes[reaction.Emoji] += reaction.Count - (reaction.IsMe ? 1 : 0);
 							}
 						}
 
