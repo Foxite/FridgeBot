@@ -1,21 +1,15 @@
 ﻿using System.Diagnostics;
-using System.Dynamic;
-using System.Linq;
 using System.Text;
-using System.Threading.Channels;
-using System.Threading.Tasks;
 using DSharpPlus;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
+using DSharpPlus.Exceptions;
 using Foxite.Common.Notifications;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Logging.Console;
-using Microsoft.Extensions.Options;
 using Qmmands;
 
 namespace FridgeBot {
@@ -74,12 +68,12 @@ namespace FridgeBot {
 
 			var discord = host.Services.GetRequiredService<DiscordClient>();
 			
-			discord.MessageReactionAdded += (client, ea) => OnReactionModifiedAsync(client, ea.Message, ea.Emoji, ea.User, true);
-			discord.MessageReactionRemoved += (client, ea) => OnReactionModifiedAsync(client, ea.Message, ea.Emoji, ea.User, false);
+			discord.MessageReactionAdded += (client, ea) => OnReactionModifiedAsync(client, ea.Message, ea.Emoji, true);
+			discord.MessageReactionRemoved += (client, ea) => OnReactionModifiedAsync(client, ea.Message, ea.Emoji, false);
 
 			discord.MessageCreated += OnMessageCreatedAsync;
 
-			discord.ClientErrored += (sender, eventArgs) => Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync($"Exception in {eventArgs.EventName}", eventArgs.Exception);
+			discord.ClientErrored += (_, eventArgs) => Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync($"Exception in {eventArgs.EventName}", eventArgs.Exception);
 			
 			await discord.ConnectAsync();
 
@@ -87,7 +81,7 @@ namespace FridgeBot {
 		}
 
 		private static async Task OnMessageCreatedAsync(DiscordClient discordClient, MessageCreateEventArgs ea) {
-			DiscordUser? firstMentionedUser = ea.Message.MentionedUsers.FirstOrDefault();
+			DiscordUser? firstMentionedUser = ea.Message.MentionedUsers.Count > 1 ? ea.Message.MentionedUsers[0] : null;
 			if (firstMentionedUser != null && (((DiscordMember) ea.Message.Author).Permissions & Permissions.Administrator) != 0 && !ea.Author.IsBot && firstMentionedUser.Id == discordClient.CurrentUser.Id && ea.Message.Content.StartsWith("<@")) {
 				var commands = Host.Services.GetRequiredService<CommandService>();
 				string input = ea.Message.Content[(discordClient.CurrentUser.Mention.Length + 1)..];
@@ -99,7 +93,7 @@ namespace FridgeBot {
 			}
 		}
 
-		private static async Task OnReactionModifiedAsync(DiscordClient discordClient, DiscordMessage message, DiscordEmoji emoji, DiscordUser user, bool added) {
+		private static async Task OnReactionModifiedAsync(DiscordClient discordClient, DiscordMessage message, DiscordEmoji emoji, bool added) {
 			// Acquire additional data such as the author, and refresh reaction counts
 			message = await message.Channel.GetMessageAsync(message.Id);
 			
@@ -107,75 +101,71 @@ namespace FridgeBot {
 				return;
 			}
 
-			await using var dbcontext = Host.Services.GetRequiredService<FridgeDbContext>();
-			
-			ServerEmote? serverEmote = await dbcontext.Emotes.Include(emote => emote.Server).Where(emote => emote.ServerId == message.Channel.GuildId).FirstOrDefaultAsync(emote => emote.EmoteString == emoji.ToStringInvariant());
-			if (serverEmote != null) {
-				FridgeEntry? fridgeEntry = await dbcontext.Entries.Include(entry => entry.Emotes).FirstOrDefaultAsync(entry => entry.MessageId == message.Id && entry.ServerId == message.Channel.GuildId);
-				FridgeEntryEmote? entryEmote = fridgeEntry?.Emotes.FirstOrDefault(fee => fee.EmoteString == emoji.ToStringInvariant());
-				DiscordReaction? messageReaction = message.Reactions.FirstOrDefault(reaction => reaction.Emoji == emoji);
+			FridgeDbContext? dbcontext = null;
+			try {
+				dbcontext = Host.Services.GetRequiredService<FridgeDbContext>();
+				ServerEmote? serverEmote = await dbcontext.Emotes.Include(emote => emote.Server).Where(emote => emote.ServerId == message.Channel.GuildId).FirstOrDefaultAsync(emote => emote.EmoteString == emoji.ToStringInvariant());
+				if (serverEmote != null) {
+					FridgeEntry? fridgeEntry = await dbcontext.Entries.Include(entry => entry.Emotes).FirstOrDefaultAsync(entry => entry.MessageId == message.Id && entry.ServerId == message.Channel.GuildId);
+					FridgeEntryEmote? entryEmote = fridgeEntry?.Emotes.FirstOrDefault(fee => fee.EmoteString == emoji.ToStringInvariant());
+					DiscordReaction? messageReaction = message.Reactions.FirstOrDefault(reaction => reaction.Emoji == emoji);
 
-				if (added) {
-					Debug.Assert(messageReaction != null);
-					if (entryEmote == null && messageReaction.Count >= serverEmote.MinimumToAdd) {
-						entryEmote = new FridgeEntryEmote() {
-							EmoteString = emoji.ToStringInvariant()
-						};
+					if (added) {
+						Debug.Assert(messageReaction != null);
+						if (entryEmote == null && messageReaction.Count >= serverEmote.MinimumToAdd) {
+							entryEmote = new FridgeEntryEmote() {
+								EmoteString = emoji.ToStringInvariant()
+							};
 
-						fridgeEntry ??= new FridgeEntry() {
-							ChannelId = message.Channel.Id,
-							MessageId = message.Id,
-							ServerId = message.Channel.Guild.Id,
-							Emotes = new List<FridgeEntryEmote>()
-						};
-						
-						fridgeEntry.Emotes.Add(entryEmote);
-					}
-				} else {
-					if (entryEmote != null && (messageReaction == null || messageReaction.Count <= serverEmote.MaximumToRemove)) {
-						Debug.Assert(fridgeEntry != null);
-						fridgeEntry.Emotes.Remove(entryEmote);
-					}
-				}
+							fridgeEntry ??= new FridgeEntry() {
+								ChannelId = message.Channel.Id,
+								MessageId = message.Id,
+								ServerId = message.Channel.Guild.Id,
+								Emotes = new List<FridgeEntryEmote>()
+							};
 
-				if (fridgeEntry != null) {
-					// TODO handle message deletion
-					if (fridgeEntry.Emotes.Count == 0) {
-						dbcontext.Entries.Remove(fridgeEntry);
-						DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverEmote.Server.ChannelId);
-						DiscordMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId)!;
-						// TODO find a way to skip intermediate discord api calls and send/update/delete the message directly
-						await fridgeMessage.DeleteAsync();
-					} else {
-						IEnumerable<DiscordReaction> allReactions = message.Reactions;
-						var fridgeableEmotes = new Dictionary<DiscordEmoji, int>();
-						foreach (DiscordReaction reaction in allReactions) {
-							if (fridgeEntry.Emotes.Any(emote => emote.EmoteString == reaction.Emoji.ToStringInvariant())) {
-								fridgeableEmotes[reaction.Emoji] = reaction.Count;
-							}
+							fridgeEntry.Emotes.Add(entryEmote);
 						}
+					} else {
+						if (entryEmote != null && (messageReaction == null || messageReaction.Count <= serverEmote.MaximumToRemove)) {
+							Debug.Assert(fridgeEntry != null);
+							fridgeEntry.Emotes.Remove(entryEmote);
+						}
+					}
 
-						DiscordMessage? fridgeMessage = null;
-						if (fridgeEntry.FridgeMessageId == 0) {
+					if (fridgeEntry != null) {
+						// TODO find a way to skip intermediate discord api calls and send/update/delete the message directly
+						if (fridgeEntry.Emotes.Count == 0) {
+							dbcontext.Entries.Remove(fridgeEntry);
 							DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverEmote.Server.ChannelId);
-							fridgeMessage = await fridgeChannel.SendMessageAsync(await GetFridgeMessageBuilderAsync(message, fridgeableEmotes));
+							DiscordMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId)!;
+							await fridgeMessage.DeleteAsync();
+						} else if (fridgeEntry.FridgeMessageId == 0) {
+							DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverEmote.Server.ChannelId);
+							DiscordMessage? fridgeMessage = await fridgeChannel.SendMessageAsync(await GetFridgeMessageBuilderAsync(message, fridgeEntry));
 							fridgeEntry.FridgeMessageId = fridgeMessage.Id;
 							dbcontext.Entries.Add(fridgeEntry);
 						} else {
-							// TODO handle message deletion
-							DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverEmote.Server.ChannelId);
-							fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId)!;
-							Debug.Assert(fridgeMessage != null);
-							await fridgeMessage.ModifyAsync(await GetFridgeMessageBuilderAsync(message, fridgeableEmotes));
+							try {
+								DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverEmote.Server.ChannelId);
+								DiscordMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId)!;
+								Debug.Assert(fridgeMessage != null);
+								await fridgeMessage.ModifyAsync(await GetFridgeMessageBuilderAsync(message, fridgeEntry));
+							} catch (NotFoundException) {
+								dbcontext.Entries.Remove(fridgeEntry);
+							}
 						}
 					}
 				}
+			} finally {
+				if (dbcontext != null) {
+					await dbcontext.SaveChangesAsync();
+					await dbcontext.DisposeAsync();
+				}
 			}
-
-			await dbcontext.SaveChangesAsync();
 		}
 
-		private static async Task<Action<DiscordMessageBuilder>> GetFridgeMessageBuilderAsync(DiscordMessage message, Dictionary<DiscordEmoji, int> reactions) {
+		private static async Task<Action<DiscordMessageBuilder>> GetFridgeMessageBuilderAsync(DiscordMessage message, FridgeEntry fridgeEntry) {
 			// This needs to be done here because of the async call (the builder lambda cannot be async)
 			string? replyingToNickname = null;
 			if (message.ReferencedMessage != null) {
@@ -183,6 +173,13 @@ namespace FridgeBot {
 				replyingToNickname = string.IsNullOrEmpty(replyingToMember.Nickname) ? replyingToMember.Username : replyingToMember.Nickname;
 			}
 			
+			var reactions = new Dictionary<DiscordEmoji, int>();
+			foreach (DiscordReaction reaction in message.Reactions) {
+				if (fridgeEntry.Emotes.Any(emote => emote.EmoteString == reaction.Emoji.ToStringInvariant())) {
+					reactions[reaction.Emoji] = reaction.Count;
+				}
+			}
+
 			return dmb => {
 				var author = (DiscordMember) message.Author;
 
@@ -190,11 +187,7 @@ namespace FridgeBot {
 				int i = 0;
 				foreach ((DiscordEmoji? emoji, _) in reactions) {
 					if (i > 0) {
-						if (i == reactions.Count - 1) {
-							content.Append(" & ");
-						} else {
-							content.Append(", ");
-						}
+						content.Append(i == reactions.Count - 1 ? " & " : ", ");
 					}
 					content.Append(emoji.ToString()); // String should not be normalized here because it gets sent to discord, rather than just stored in the database.
 					i++;
