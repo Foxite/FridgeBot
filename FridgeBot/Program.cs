@@ -43,6 +43,7 @@ namespace FridgeBot {
 							Intents = DiscordIntents.All, // Not sure which one, but there is an intent that is necessary to get the permissions of any user.
 							LoggerFactory = isp.GetRequiredService<ILoggerFactory>(),
 							MinimumLogLevel = LogLevel.Information,
+							MessageCacheSize = 0
 						};
 						return new DiscordClient(config);
 					});
@@ -138,18 +139,17 @@ namespace FridgeBot {
 						if (fridgeEntry.Emotes.Count == 0) {
 							dbcontext.Entries.Remove(fridgeEntry);
 							DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverEmote.Server.ChannelId);
-							DiscordMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId)!;
+							DiscordMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId);
 							await fridgeMessage.DeleteAsync();
 						} else if (fridgeEntry.FridgeMessageId == 0) {
 							DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverEmote.Server.ChannelId);
-							DiscordMessage? fridgeMessage = await fridgeChannel.SendMessageAsync(GetFridgeMessageBuilder(message, fridgeEntry));
+							DiscordMessage fridgeMessage = await fridgeChannel.SendMessageAsync(GetFridgeMessageBuilder(message, fridgeEntry));
 							fridgeEntry.FridgeMessageId = fridgeMessage.Id;
 							dbcontext.Entries.Add(fridgeEntry);
 						} else {
 							try {
 								DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverEmote.Server.ChannelId);
-								DiscordMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId)!;
-								Debug.Assert(fridgeMessage != null);
+								DiscordMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId);
 								await fridgeMessage.ModifyAsync(GetFridgeMessageBuilder(message, fridgeEntry));
 							} catch (NotFoundException) {
 								dbcontext.Entries.Remove(fridgeEntry);
