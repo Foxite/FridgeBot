@@ -216,13 +216,25 @@ namespace FridgeBot {
 					authorAvatarUrl = message.Author.AvatarUrl;
 				}
 
+				string description = message.MessageType switch {
+					MessageType.Default or MessageType.Reply => message.Content, // No need to check the length because the max length of a discord message is 4000 with nitro, but the max length of an embed description is 4096.
+					MessageType.ChannelPinnedMessage => $"{authorName} pinned a message to the channel.",
+					MessageType.ApplicationCommand => $"{authorName} used ${message.Interaction.Name}",
+					MessageType.GuildMemberJoin => $"{authorName} has joined the server!",
+					MessageType.UserPremiumGuildSubscription => $"{authorName} has just boosted the server!",
+					MessageType.TierOneUserPremiumGuildSubscription => $"{authorName} has just boosted the server! {message.Channel.Guild.Name} has achieved **Level 1**!",
+					MessageType.TierTwoUserPremiumGuildSubscription => $"{authorName} has just boosted the server! {message.Channel.Guild.Name} has achieved **Level 2**!",
+					MessageType.TierThreeUserPremiumGuildSubscription => $"{authorName} has just boosted the server! {message.Channel.Guild.Name} has achieved **Level 3**!",
+					_ => ""
+				};
+
 				var embedBuilder = new DiscordEmbedBuilder() {
 					Author = new DiscordEmbedBuilder.EmbedAuthor() {
 						Name = authorName,
 						IconUrl = authorAvatarUrl
 					},
 					Color = new Optional<DiscordColor>(DiscordColor.Azure),
-					Description = message.Content, // No need to check the length because the max length of a discord message is 4000 with nitro, but the max length of an embed description is 4096.
+					Description = description,
 					Footer = new DiscordEmbedBuilder.EmbedFooter() {
 						Text = message.Id.ToString()
 					},
