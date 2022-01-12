@@ -142,7 +142,7 @@ namespace FridgeBot {
 							await fridgeMessage.DeleteAsync();
 						} else if (fridgeEntry.FridgeMessageId == 0) {
 							DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverEmote.Server.ChannelId);
-							DiscordMessage? fridgeMessage = await fridgeChannel.SendMessageAsync(await GetFridgeMessageBuilderAsync(message, fridgeEntry));
+							DiscordMessage? fridgeMessage = await fridgeChannel.SendMessageAsync(GetFridgeMessageBuilder(message, fridgeEntry));
 							fridgeEntry.FridgeMessageId = fridgeMessage.Id;
 							dbcontext.Entries.Add(fridgeEntry);
 						} else {
@@ -150,7 +150,7 @@ namespace FridgeBot {
 								DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverEmote.Server.ChannelId);
 								DiscordMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId)!;
 								Debug.Assert(fridgeMessage != null);
-								await fridgeMessage.ModifyAsync(await GetFridgeMessageBuilderAsync(message, fridgeEntry));
+								await fridgeMessage.ModifyAsync(GetFridgeMessageBuilder(message, fridgeEntry));
 							} catch (NotFoundException) {
 								dbcontext.Entries.Remove(fridgeEntry);
 							}
@@ -170,24 +170,24 @@ namespace FridgeBot {
 			}
 		}
 
-		private static async Task<Action<DiscordMessageBuilder>> GetFridgeMessageBuilderAsync(DiscordMessage message, FridgeEntry fridgeEntry) {
-			// This needs to be done here because of the async call (the builder lambda cannot be async)
-			string? replyingToNickname = null;
-			if (message.ReferencedMessage != null) {
-				DiscordMember replyingToMember = await message.Channel.Guild.GetMemberAsync(message.ReferencedMessage.Author.Id);
-				replyingToNickname = string.IsNullOrEmpty(replyingToMember.Nickname) ? replyingToMember.Username : replyingToMember.Nickname;
-			}
-			
-			var reactions = new Dictionary<DiscordEmoji, int>();
-			foreach (DiscordReaction reaction in message.Reactions) {
-				if (fridgeEntry.Emotes.Any(emote => emote.EmoteString == reaction.Emoji.ToStringInvariant())) {
-					reactions[reaction.Emoji] = reaction.Count;
-				}
-			}
-
+		private static Action<DiscordMessageBuilder> GetFridgeMessageBuilder(DiscordMessage message, FridgeEntry fridgeEntry) {
 			return dmb => {
-				var author = (DiscordMember) message.Author;
-
+				string? replyingToNickname = null;
+				if (message.ReferencedMessage != null) {
+					if (message.ReferencedMessage.Author is DiscordMember replyingToMember && !string.IsNullOrEmpty(replyingToMember.Nickname)) {
+						replyingToNickname = replyingToMember.Nickname;
+					} else {
+						replyingToNickname = message.ReferencedMessage.Author.Username;
+					}
+				}
+			
+				var reactions = new Dictionary<DiscordEmoji, int>();
+				foreach (DiscordReaction reaction in message.Reactions) {
+					if (fridgeEntry.Emotes.Any(emote => emote.EmoteString == reaction.Emoji.ToStringInvariant())) {
+						reactions[reaction.Emoji] = reaction.Count;
+					}
+				}
+				
 				var content = new StringBuilder();
 				int i = 0;
 				foreach ((DiscordEmoji? emoji, _) in reactions) {
@@ -206,10 +206,20 @@ namespace FridgeBot {
 				
 				dmb.Content = content.ToString();
 
+				string authorName;
+				string authorAvatarUrl;
+				if (message.Author is DiscordMember authorMember) {
+					authorName = string.IsNullOrEmpty(authorMember.Nickname) ? authorMember.Username : authorMember.Nickname;
+					authorAvatarUrl = authorMember.AvatarHash == authorMember.GuildAvatarHash ? authorMember.AvatarUrl : authorMember.GuildAvatarUrl;
+				} else {
+					authorName = message.Author.Username;
+					authorAvatarUrl = message.Author.AvatarUrl;
+				}
+
 				var embedBuilder = new DiscordEmbedBuilder() {
 					Author = new DiscordEmbedBuilder.EmbedAuthor() {
-						Name = author.Nickname ?? author.Username,
-						IconUrl = author.AvatarHash == author.GuildAvatarHash ? author.AvatarUrl : author.GuildAvatarUrl
+						Name = authorName,
+						IconUrl = authorAvatarUrl
 					},
 					Color = new Optional<DiscordColor>(DiscordColor.Azure),
 					Description = message.Content, // No need to check the length because the max length of a discord message is 4000 with nitro, but the max length of an embed description is 4096.
