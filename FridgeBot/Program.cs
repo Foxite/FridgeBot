@@ -82,7 +82,8 @@ namespace FridgeBot {
 		}
 
 		private static async Task OnMessageCreatedAsync(DiscordClient discordClient, MessageCreateEventArgs ea) {
-			DiscordUser? firstMentionedUser = ea.Message.MentionedUsers.Count > 1 ? ea.Message.MentionedUsers[0] : null;
+			DiscordUser? firstMentionedUser = ea.Message.MentionedUsers.Count >= 1 ? ea.Message.MentionedUsers[0] : null;
+			Console.WriteLine(ea.Message.Content);
 			if (firstMentionedUser != null && (((DiscordMember) ea.Message.Author).Permissions & Permissions.Administrator) != 0 && !ea.Author.IsBot && firstMentionedUser.Id == discordClient.CurrentUser.Id && ea.Message.Content.StartsWith("<@")) {
 				var commands = Host.Services.GetRequiredService<CommandService>();
 				string input = ea.Message.Content[(discordClient.CurrentUser.Mention.Length + 1)..];
@@ -106,7 +107,7 @@ namespace FridgeBot {
 			try {
 				dbcontext = Host.Services.GetRequiredService<FridgeDbContext>();
 				ServerEmote? serverEmote = await dbcontext.Emotes.Include(emote => emote.Server).Where(emote => emote.ServerId == message.Channel.GuildId).FirstOrDefaultAsync(emote => emote.EmoteString == emoji.ToStringInvariant());
-				if (serverEmote != null) {
+				if (serverEmote != null && message.CreationTimestamp >= serverEmote.Server.InitializedAt) {
 					FridgeEntry? fridgeEntry = await dbcontext.Entries.Include(entry => entry.Emotes).FirstOrDefaultAsync(entry => entry.MessageId == message.Id && entry.ServerId == message.Channel.GuildId);
 					FridgeEntryEmote? entryEmote = fridgeEntry?.Emotes.FirstOrDefault(fee => fee.EmoteString == emoji.ToStringInvariant());
 					DiscordReaction? messageReaction = message.Reactions.FirstOrDefault(reaction => reaction.Emoji == emoji);

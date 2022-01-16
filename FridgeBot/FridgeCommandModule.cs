@@ -11,12 +11,24 @@ namespace FridgeBot {
 			if (fridge == null) {
 				DbContext.Servers.Add(new ServerFridge() {
 					Id = Context.Guild.Id,
-					ChannelId = fridgeChannel.Id
+					ChannelId = fridgeChannel.Id,
+					InitializedAt = DateTimeOffset.UtcNow
 				});
 			} else {
 				fridge.ChannelId = fridgeChannel.Id;
 			}
 			return new TextResult("OK", true);
+		}
+
+		[Command("initdate")]
+		public async Task<CommandResult> Init(ulong idOfInitCommand) {
+			ServerFridge? fridge = await DbContext.Servers.FindAsync(Context.Guild.Id);
+			if (fridge == null) {
+				return new TextResult("You must use init first", false);
+			} else {
+				fridge.InitializedAt = DSharpPlus.Utilities.GetSnowflakeTime(idOfInitCommand);
+				return new TextResult("OK", true);
+			}
 		}
 
 		[Command("emote")]

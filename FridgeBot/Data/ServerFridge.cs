@@ -10,6 +10,8 @@ namespace FridgeBot {
 		/// </summary>
 		public ulong ChannelId { get; set; }
 		
+		public DateTimeOffset InitializedAt { get; set; } = DateTimeOffset.MinValue;
+		
 		public ICollection<FridgeEntry> FridgeEntries { get; set; }
 		public ICollection<ServerEmote> Emotes { get; set; }
 	}
