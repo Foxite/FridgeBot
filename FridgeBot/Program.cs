@@ -83,7 +83,6 @@ namespace FridgeBot {
 
 		private static async Task OnMessageCreatedAsync(DiscordClient discordClient, MessageCreateEventArgs ea) {
 			DiscordUser? firstMentionedUser = ea.Message.MentionedUsers.Count >= 1 ? ea.Message.MentionedUsers[0] : null;
-			Console.WriteLine(ea.Message.Content);
 			if (firstMentionedUser != null && (((DiscordMember) ea.Message.Author).Permissions & Permissions.Administrator) != 0 && !ea.Author.IsBot && firstMentionedUser.Id == discordClient.CurrentUser.Id && ea.Message.Content.StartsWith("<@")) {
 				var commands = Host.Services.GetRequiredService<CommandService>();
 				string input = ea.Message.Content[(discordClient.CurrentUser.Mention.Length + 1)..];
