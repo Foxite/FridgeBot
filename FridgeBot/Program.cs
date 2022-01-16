@@ -209,8 +209,8 @@ namespace FridgeBot {
 				string authorName;
 				string authorAvatarUrl;
 				if (message.Author is DiscordMember authorMember) {
-					authorName = string.IsNullOrEmpty(authorMember.Nickname) ? authorMember.Username : authorMember.Nickname;
-					authorAvatarUrl = authorMember.AvatarHash == authorMember.GuildAvatarHash ? authorMember.AvatarUrl : authorMember.GuildAvatarUrl;
+					authorName = authorMember.Nickname ?? authorMember.Username;
+					authorAvatarUrl = authorMember.GuildAvatarUrl ?? authorMember.AvatarUrl;
 				} else {
 					authorName = message.Author.Username;
 					authorAvatarUrl = message.Author.AvatarUrl;
@@ -225,6 +225,8 @@ namespace FridgeBot {
 					MessageType.TierOneUserPremiumGuildSubscription => $"{authorName} has just boosted the server! {message.Channel.Guild.Name} has achieved **Level 1**!",
 					MessageType.TierTwoUserPremiumGuildSubscription => $"{authorName} has just boosted the server! {message.Channel.Guild.Name} has achieved **Level 2**!",
 					MessageType.TierThreeUserPremiumGuildSubscription => $"{authorName} has just boosted the server! {message.Channel.Guild.Name} has achieved **Level 3**!",
+					MessageType.RecipientAdd => $"{authorName} joined the thread!", // Does not actually seem to happen
+					MessageType.RecipientRemove => $"{authorName} removed {(message.MentionedUsers[0] as DiscordMember)?.Nickname ?? message.MentionedUsers[0].Username} from the thread.",
 					_ => ""
 				};
 
