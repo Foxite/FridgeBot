@@ -144,14 +144,14 @@ namespace FridgeBot {
 							await fridgeMessage.DeleteAsync();
 						} else if (fridgeEntry.FridgeMessageId == 0) {
 							DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverEmote.Server.ChannelId);
-							DiscordMessage fridgeMessage = await fridgeChannel.SendMessageAsync(GetFridgeMessageBuilder(message, fridgeEntry));
+							DiscordMessage fridgeMessage = await fridgeChannel.SendMessageAsync(GetFridgeMessageBuilder(message, fridgeEntry, null));
 							fridgeEntry.FridgeMessageId = fridgeMessage.Id;
 							dbcontext.Entries.Add(fridgeEntry);
 						} else {
 							try {
 								DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverEmote.Server.ChannelId);
 								DiscordMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId);
-								await fridgeMessage.ModifyAsync(GetFridgeMessageBuilder(message, fridgeEntry));
+								await fridgeMessage.ModifyAsync(GetFridgeMessageBuilder(message, fridgeEntry, fridgeMessage));
 							} catch (NotFoundException) {
 								dbcontext.Entries.Remove(fridgeEntry);
 							}
@@ -171,7 +171,7 @@ namespace FridgeBot {
 			}
 		}
 
-		private static Action<DiscordMessageBuilder> GetFridgeMessageBuilder(DiscordMessage message, FridgeEntry fridgeEntry) {
+		private static Action<DiscordMessageBuilder> GetFridgeMessageBuilder(DiscordMessage message, FridgeEntry fridgeEntry, DiscordMessage? existingFridgeMessage) {
 			return dmb => {
 				string? replyingToNickname = null;
 				if (message.ReferencedMessage != null) {
@@ -236,13 +236,13 @@ namespace FridgeBot {
 					imageUrl = message.Attachments.FirstOrDefault(att => att.MediaType.StartsWith("image/"))?.Url;
 					if (imageUrl == null) {
 						DiscordAttachment? videoAttachment = message.Attachments.FirstOrDefault(att => att.MediaType.StartsWith("video/"));
-						if (videoAttachment != null) {
+						if (videoAttachment != null && (existingFridgeMessage == null || existingFridgeMessage.Attachments.Count == 0)) {
 							var http = Host.Services.GetRequiredService<HttpClient>();
 							try {
 								using Stream download = http.GetStreamAsync(videoAttachment.Url).Result;
 								var memory = new MemoryStream();
 								download.CopyTo(memory);
-								download.Position = 0;
+								memory.Position = 0;
 								dmb.WithFile(videoAttachment.FileName, memory);
 							} catch (Exception e) {
 								Host.Services.GetRequiredService<ILogger<Program>>().LogError(e, "Error downloading attachment {videoUrl}", videoAttachment.Url);
