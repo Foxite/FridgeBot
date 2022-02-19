@@ -242,6 +242,7 @@ namespace FridgeBot {
 								using Stream download = http.GetStreamAsync(videoAttachment.Url).Result;
 								var memory = new MemoryStream();
 								download.CopyTo(memory);
+								download.Position = 0;
 								dmb.WithFile(videoAttachment.FileName, memory);
 							} catch (Exception e) {
 								Host.Services.GetRequiredService<ILogger<Program>>().LogError(e, "Error downloading attachment {videoUrl}", videoAttachment.Url);
