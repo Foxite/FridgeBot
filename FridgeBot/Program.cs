@@ -30,7 +30,7 @@ namespace FridgeBot {
 		
 		private static async Task Main(string[] args) {
 			using IHost host = CreateHostBuilder(args)
-				.ConfigureLogging((context, builder) => {
+				.ConfigureLogging((_, builder) => {
 					builder.AddExceptionDemystifyer();
 				})
 				.ConfigureServices((hbc, isc) => {
@@ -241,7 +241,8 @@ namespace FridgeBot {
 							try {
 								using Stream stream = http.GetStreamAsync(videoAttachment.Url).Result;
 								dmb.WithFile(videoAttachment.FileName, stream);
-							} catch (HttpRequestException e) {
+							} catch (Exception e) {
+								Host.Services.GetRequiredService<ILogger<Program>>().LogError(e, "Error downloading attachment {videoUrl}", videoAttachment.Url);
 								Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync($"Error downloading attachment {videoAttachment.Url}, ignoring", e);
 							}
 						}
