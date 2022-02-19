@@ -239,8 +239,10 @@ namespace FridgeBot {
 						if (videoAttachment != null) {
 							var http = Host.Services.GetRequiredService<HttpClient>();
 							try {
-								using Stream stream = http.GetStreamAsync(videoAttachment.Url).Result;
-								dmb.WithFile(videoAttachment.FileName, stream);
+								using Stream download = http.GetStreamAsync(videoAttachment.Url).Result;
+								var memory = new MemoryStream();
+								download.CopyTo(memory);
+								dmb.WithFile(videoAttachment.FileName, memory);
 							} catch (Exception e) {
 								Host.Services.GetRequiredService<ILogger<Program>>().LogError(e, "Error downloading attachment {videoUrl}", videoAttachment.Url);
 								Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync($"Error downloading attachment {videoAttachment.Url}, ignoring", e);
