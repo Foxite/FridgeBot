@@ -233,7 +233,7 @@ namespace FridgeBot {
 
 				string? imageUrl = null;
 				if (message.Attachments.Count > 0) {
-					imageUrl = message.Attachments.FirstOrDefault(att => att.MediaType.StartsWith("image/"))?.Url;
+					imageUrl = message.Attachments.FirstOrDefault(att => att.MediaType != null && att.MediaType.StartsWith("image/"))?.Url;
 					if (imageUrl == null) {
 						DiscordAttachment? videoAttachment = message.Attachments.FirstOrDefault(att => att.MediaType.StartsWith("video/"));
 						if (videoAttachment != null && (existingFridgeMessage == null || existingFridgeMessage.Attachments.Count == 0)) {
