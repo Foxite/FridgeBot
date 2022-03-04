@@ -235,7 +235,7 @@ namespace FridgeBot {
 				if (message.Attachments.Count > 0) {
 					imageUrl = message.Attachments.FirstOrDefault(att => att.MediaType != null && att.MediaType.StartsWith("image/"))?.Url;
 					if (imageUrl == null) {
-						DiscordAttachment? videoAttachment = message.Attachments.FirstOrDefault(att => att.MediaType.StartsWith("video/"));
+						DiscordAttachment? videoAttachment = message.Attachments.FirstOrDefault(att => att.MediaType != null && att.MediaType.StartsWith("video/"));
 						if (videoAttachment != null && (existingFridgeMessage == null || existingFridgeMessage.Attachments.Count == 0)) {
 							var http = Host.Services.GetRequiredService<HttpClient>();
 							try {
