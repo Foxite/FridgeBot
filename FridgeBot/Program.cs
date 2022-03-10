@@ -96,15 +96,15 @@ namespace FridgeBot {
 		}
 
 		private static async Task OnReactionModifiedAsync(DiscordClient discordClient, DiscordMessage message, DiscordEmoji emoji, bool added) {
-			// Acquire additional data such as the author, and refresh reaction counts
-			message = await message.Channel.GetMessageAsync(message.Id);
-			
-			if (message.Author.IsCurrent) {
-				return;
-			}
-
 			FridgeDbContext? dbcontext = null;
 			try {
+				// Acquire additional data such as the author, and refresh reaction counts
+				message = await message.Channel.GetMessageAsync(message.Id);
+				
+				if (message.Author.IsCurrent) {
+					return;
+				}
+
 				dbcontext = Host.Services.GetRequiredService<FridgeDbContext>();
 				ServerEmote? serverEmote = await dbcontext.Emotes.Include(emote => emote.Server).Where(emote => emote.ServerId == message.Channel.GuildId).FirstOrDefaultAsync(emote => emote.EmoteString == emoji.ToStringInvariant());
 				if (serverEmote != null && message.CreationTimestamp >= serverEmote.Server.InitializedAt) {
