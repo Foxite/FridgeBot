@@ -4,3 +4,5 @@
 .vs
 .vscode
 *.env
+**/appsettings.json
+
