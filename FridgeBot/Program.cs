@@ -83,15 +83,23 @@ namespace FridgeBot {
 		}
 
 		private static async Task OnMessageCreatedAsync(DiscordClient discordClient, MessageCreateEventArgs ea) {
-			DiscordUser? firstMentionedUser = ea.Message.MentionedUsers.Count >= 1 ? ea.Message.MentionedUsers[0] : null;
-			if (firstMentionedUser != null && (((DiscordMember) ea.Message.Author).Permissions & Permissions.Administrator) != 0 && !ea.Author.IsBot && firstMentionedUser.Id == discordClient.CurrentUser.Id && ea.Message.Content.StartsWith("<@")) {
-				var commands = Host.Services.GetRequiredService<CommandService>();
-				string input = ea.Message.Content[(discordClient.CurrentUser.Mention.Length + 1)..];
-				IResult result = await commands.ExecuteAsync(input, new DiscordCommandContext(Host.Services, ea.Message));
-				await ea.Message.RespondAsync(result.ToString());
-				if (result is CommandExecutionFailedResult cefr) {
-					Host.Services.GetRequiredService<ILogger<Program>>().LogCritical(cefr.Exception, "Error executing: {}", input);
+			try {
+				DiscordUser? firstMentionedUser = ea.Message.MentionedUsers.Count >= 1 ? ea.Message.MentionedUsers[0] : null;
+				if (firstMentionedUser != null && (((DiscordMember) ea.Message.Author).Permissions & Permissions.Administrator) != 0 && !ea.Author.IsBot && firstMentionedUser.Id == discordClient.CurrentUser.Id && ea.Message.Content.StartsWith("<@")) {
+					var commands = Host.Services.GetRequiredService<CommandService>();
+					string input = ea.Message.Content[(discordClient.CurrentUser.Mention.Length + 1)..];
+					IResult result = await commands.ExecuteAsync(input, new DiscordCommandContext(Host.Services, ea.Message));
+					await ea.Message.RespondAsync(result.ToString());
+					if (result is CommandExecutionFailedResult cefr) {
+						Host.Services.GetRequiredService<ILogger<Program>>().LogCritical(cefr.Exception, "Error executing: {}", input);
+					}
 				}
+			} catch (Exception e) {
+				DiscordMessage message = ea.Message;
+				throw new Exception($"{message.Author.Id} ({message.Author.Username}#{message.Author.Discriminator}), bot: {message.Author.IsBot}\n" +
+				                    $"message: {message.Id} ({message.JumpLink}), type: {message.MessageType?.ToString() ?? "(null)"}, webhook: {message.WebhookMessage}\n" +
+				                    $"channel {message.Channel.Id} ({message.Channel.Name})\n" +
+				                    (message.Channel.Guild != null ? $"guild {message.Channel.Guild.Id} ({message.Channel.Guild.Name})" : ""), e);
 			}
 		}
 
