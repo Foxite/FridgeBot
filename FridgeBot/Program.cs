@@ -96,7 +96,7 @@ namespace FridgeBot {
 				}
 			} catch (Exception e) {
 				DiscordMessage message = ea.Message;
-				throw new Exception($"{message.Author.Id} ({message.Author.Username}#{message.Author.Discriminator}), bot: {message.Author.IsBot}\n" +
+				throw new Exception($"author: {message.Author.Id} ({message.Author.Username}#{message.Author.Discriminator}), bot: {message.Author.IsBot}\n" +
 				                    $"message: {message.Id} ({message.JumpLink}), type: {message.MessageType?.ToString() ?? "(null)"}, webhook: {message.WebhookMessage}\n" +
 				                    $"channel {message.Channel.Id} ({message.Channel.Name})\n" +
 				                    (message.Channel.Guild != null ? $"guild {message.Channel.Guild.Id} ({message.Channel.Guild.Name})" : ""), e);
@@ -107,8 +107,17 @@ namespace FridgeBot {
 			FridgeDbContext? dbcontext = null;
 			try {
 				// Acquire additional data such as the author, and refresh reaction counts
-				message = await message.Channel.GetMessageAsync(message.Id);
-				
+				try {
+					message = await message.Channel.GetMessageAsync(message.Id);
+				} catch (NotFoundException) {
+					// Message was deleted since the event fired
+					return;
+				}
+				if (message == null) {
+					// Also deleted? idk. better safe than sorry
+					return;
+				}
+
 				if (message.Author.IsCurrent) {
 					return;
 				}
@@ -168,7 +177,7 @@ namespace FridgeBot {
 				}
 			} catch (Exception e) {
 				string N(object? o) => o?.ToString() ?? "null";
-				throw new Exception($"{N(message?.Author?.Id)} ({N(message?.Author?.Username)}#{N(message?.Author?.Discriminator)}), bot: {N(message?.Author?.IsBot)}\n" +
+				throw new Exception($"author: {N(message?.Author?.Id)} ({N(message?.Author?.Username)}#{N(message?.Author?.Discriminator)}), bot: {N(message?.Author?.IsBot)}\n" +
 									$"message: {N(message?.Id)} ({N(message?.JumpLink)}), type: {N(message?.MessageType?.ToString() ?? "(null)")}, webhook: {N(message?.WebhookMessage)}\n" +
 									$"channel {N(message?.Channel?.Id)} ({N(message?.Channel?.Name)})\n" +
 									(message?.Channel?.Guild != null ? $"guild {N(message?.Channel?.Guild?.Id)} ({N(message?.Channel?.Guild?.Name)})" : ""), e);
