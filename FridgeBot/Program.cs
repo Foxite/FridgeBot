@@ -4,6 +4,7 @@ using DSharpPlus;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 using DSharpPlus.Exceptions;
+using Foxite.Common;
 using Foxite.Common.Notifications;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -94,12 +95,16 @@ namespace FridgeBot {
 						Host.Services.GetRequiredService<ILogger<Program>>().LogCritical(cefr.Exception, "Error executing: {}", input);
 					}
 				}
-			} catch (Exception e) {
-				DiscordMessage message = ea.Message;
-				throw new Exception($"author: {message.Author.Id} ({message.Author.Username}#{message.Author.Discriminator}), bot: {message.Author.IsBot}\n" +
-				                    $"message: {message.Id} ({message.JumpLink}), type: {message.MessageType?.ToString() ?? "(null)"}, webhook: {message.WebhookMessage}\n" +
-				                    $"channel {message.Channel.Id} ({message.Channel.Name})\n" +
-				                    (message.Channel.Guild != null ? $"guild {message.Channel.Guild.Id} ({message.Channel.Guild.Name})" : ""), e);
+			} catch (Exception ex) {
+				string N(object? o) => o?.ToString() ?? "null";
+				FormattableString errorMessage =
+					@$"Exception in OnMessageCreated
+					   author: {N(ea?.Author?.Id)} ({N(ea?.Author?.Username)}#{N(ea?.Author?.Discriminator)}), bot: {N(ea?.Author?.IsBot)}
+					   message: {N(ea?.Message?.Id)} ({N(ea?.Message?.JumpLink)}), type: {N(ea?.Message?.MessageType?.ToString() ?? "(null)")}, webhook: {N(ea?.Message?.WebhookMessage)}
+					   channel {N(ea?.Channel?.Id)} ({N(ea?.Channel?.Name)})
+					   {(ea?.Channel?.Guild != null ? $"guild {N(ea?.Channel?.Guild?.Id)} ({N(ea?.Channel?.Guild?.Name)})" : "")}";
+				Host.Services.GetRequiredService<ILogger<Program>>().LogCritical(ex, errorMessage);
+				await Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync(errorMessage, ex.Demystify());
 			}
 		}
 
@@ -175,12 +180,16 @@ namespace FridgeBot {
 						}
 					}
 				}
-			} catch (Exception e) {
+			} catch (Exception ex) {
 				string N(object? o) => o?.ToString() ?? "null";
-				throw new Exception($"author: {N(message?.Author?.Id)} ({N(message?.Author?.Username)}#{N(message?.Author?.Discriminator)}), bot: {N(message?.Author?.IsBot)}\n" +
-									$"message: {N(message?.Id)} ({N(message?.JumpLink)}), type: {N(message?.MessageType?.ToString() ?? "(null)")}, webhook: {N(message?.WebhookMessage)}\n" +
-									$"channel {N(message?.Channel?.Id)} ({N(message?.Channel?.Name)})\n" +
-									(message?.Channel?.Guild != null ? $"guild {N(message?.Channel?.Guild?.Id)} ({N(message?.Channel?.Guild?.Name)})" : ""), e);
+				FormattableString errorMessage =
+					@$"Exception in OnReactionModifiedAsync
+					   author: {N(message?.Author?.Id)} ({N(message?.Author?.Username)}#{N(message?.Author?.Discriminator)}), bot: {N(message?.Author?.IsBot)}
+					   message: {N(message?.Id)} ({N(message?.JumpLink)}), type: {N(message?.MessageType?.ToString() ?? "(null)")}, webhook: {N(message?.WebhookMessage)}
+					   channel {N(message?.Channel?.Id)} ({N(message?.Channel?.Name)})
+					   {(message?.Channel?.Guild != null ? $"guild {N(message?.Channel?.Guild?.Id)} ({N(message?.Channel?.Guild?.Name)})" : "")}";
+				Host.Services.GetRequiredService<ILogger<Program>>().LogCritical(ex, errorMessage);
+				await Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync(errorMessage, ex.Demystify());
 			} finally {
 				if (dbcontext != null) {
 					await dbcontext.SaveChangesAsync();
