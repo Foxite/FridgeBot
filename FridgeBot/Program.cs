@@ -247,7 +247,7 @@ namespace FridgeBot {
 				string description = message.MessageType switch {
 					MessageType.Default or MessageType.Reply => message.Content, // No need to check the length because the max length of a discord message is 4000 with nitro, but the max length of an embed description is 4096.
 					MessageType.ChannelPinnedMessage => $"{authorName} pinned a message to the channel.",
-					MessageType.ApplicationCommand => $"{authorName} used ${message.Interaction.Name}",
+					MessageType.ApplicationCommand => $"{(message.Interaction.User is DiscordMember interactionMember ? interactionMember.Nickname : message.Interaction.User.Username)} used ${message.Interaction.Name}",
 					MessageType.GuildMemberJoin => $"{authorName} has joined the server!",
 					MessageType.UserPremiumGuildSubscription => $"{authorName} has just boosted the server!",
 					MessageType.TierOneUserPremiumGuildSubscription => $"{authorName} has just boosted the server! {message.Channel.Guild.Name} has achieved **Level 1**!",
