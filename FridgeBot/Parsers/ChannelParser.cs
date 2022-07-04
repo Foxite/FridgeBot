@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿/*
+using System.Globalization;
 using System.Threading.Tasks;
 using DSharpPlus;
 using DSharpPlus.Entities;
@@ -22,3 +23,4 @@ namespace FridgeBot {
 		}
 	}
 }
+*/

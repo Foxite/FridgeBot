@@ -1,3 +1,4 @@
+/*
 using DSharpPlus;
 using DSharpPlus.Entities;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,3 +28,4 @@ namespace FridgeBot {
 		}
 	}
 }
+*/

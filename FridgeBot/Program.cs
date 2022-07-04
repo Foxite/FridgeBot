@@ -1,8 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Text;
 using DSharpPlus;
+using DSharpPlus.CommandsNext;
 using DSharpPlus.Entities;
-using DSharpPlus.EventArgs;
 using DSharpPlus.Exceptions;
 using Foxite.Common;
 using Foxite.Common.Notifications;
@@ -11,7 +11,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Qmmands;
 
 namespace FridgeBot {
 	public sealed class Program {
@@ -50,7 +49,6 @@ namespace FridgeBot {
 					});
 
 					isc.AddSingleton<HttpClient>();
-					isc.AddSingleton<CommandService>();
 					
 					isc.ConfigureDbContext<FridgeDbContext>();
 					
@@ -64,48 +62,36 @@ namespace FridgeBot {
 				await dbContext.Database.MigrateAsync();
 			}
 
-			var commands = host.Services.GetRequiredService<CommandService>();
-			commands.AddModule<FridgeCommandModule>();
-			commands.AddTypeParser(new ChannelParser());
-			commands.AddTypeParser(new DiscordEmojiParser());
-
 			var discord = host.Services.GetRequiredService<DiscordClient>();
-			
+			var commands = discord.UseCommandsNext(new CommandsNextConfiguration() {
+				EnableMentionPrefix = true,
+				EnableDefaultHelp = true,
+				EnableDms = false,
+				Services = host.Services,
+			});
+			commands.RegisterCommands<AdminModule>();
+			commands.CommandErrored += async (_, ea) => {
+				string N(object? o) => o?.ToString() ?? "null";
+				string errorMessage =
+					$"Exception in OnMessageCreated\n" +
+					$"author: {N(ea.Context.User?.Id)} ({N(ea.Context.User?.Username)}#{N(ea.Context.User?.Discriminator)}), bot: {N(ea.Context.User?.IsBot)}\n" +
+					$"message: {N(ea.Context.Message?.Id)} ({N(ea.Context.Message?.JumpLink)}), type: {N(ea.Context.Message?.MessageType?.ToString() ?? "(null)")}, webhook: {N(ea.Context.Message?.WebhookMessage)}\n" +
+					$"channel {N(ea.Context.Channel?.Id)} ({N(ea.Context.Channel?.Name)})\n" +
+					$"{(ea.Context.Channel?.Guild != null ? $"guild {N(ea.Context.Channel?.Guild?.Id)} ({N(ea.Context.Channel?.Guild?.Name)})" : "")}";
+				Host.Services.GetRequiredService<ILogger<Program>>().LogCritical(ea.Exception, errorMessage);
+				await ea.Context.RespondAsync("Internal error, devs notified.");
+				
+				await Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync(errorMessage, ea.Exception.Demystify());
+			};
+
 			discord.MessageReactionAdded += (client, ea) => OnReactionModifiedAsync(client, ea.Message, ea.Emoji, true);
 			discord.MessageReactionRemoved += (client, ea) => OnReactionModifiedAsync(client, ea.Message, ea.Emoji, false);
-
-			discord.MessageCreated += OnMessageCreatedAsync;
 
 			discord.ClientErrored += (_, eventArgs) => Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync($"Exception in {eventArgs.EventName}", eventArgs.Exception);
 			
 			await discord.ConnectAsync();
 
 			await host.RunAsync();
-		}
-
-		private static async Task OnMessageCreatedAsync(DiscordClient discordClient, MessageCreateEventArgs ea) {
-			try {
-				DiscordUser? firstMentionedUser = ea.Message.MentionedUsers.Count >= 1 ? ea.Message.MentionedUsers[0] : null;
-				if (firstMentionedUser != null && (((DiscordMember) ea.Message.Author).Permissions & Permissions.Administrator) != 0 && !ea.Author.IsBot && firstMentionedUser.Id == discordClient.CurrentUser.Id && ea.Message.Content.StartsWith("<@")) {
-					var commands = Host.Services.GetRequiredService<CommandService>();
-					string input = ea.Message.Content[(discordClient.CurrentUser.Mention.Length + 1)..];
-					IResult result = await commands.ExecuteAsync(input, new DiscordCommandContext(Host.Services, ea.Message));
-					await ea.Message.RespondAsync(result.ToString());
-					if (result is CommandExecutionFailedResult cefr) {
-						Host.Services.GetRequiredService<ILogger<Program>>().LogCritical(cefr.Exception, "Error executing: {}", input);
-					}
-				}
-			} catch (Exception ex) {
-				string N(object? o) => o?.ToString() ?? "null";
-				FormattableString errorMessage =
-					@$"Exception in OnMessageCreated
-					   author: {N(ea?.Author?.Id)} ({N(ea?.Author?.Username)}#{N(ea?.Author?.Discriminator)}), bot: {N(ea?.Author?.IsBot)}
-					   message: {N(ea?.Message?.Id)} ({N(ea?.Message?.JumpLink)}), type: {N(ea?.Message?.MessageType?.ToString() ?? "(null)")}, webhook: {N(ea?.Message?.WebhookMessage)}
-					   channel {N(ea?.Channel?.Id)} ({N(ea?.Channel?.Name)})
-					   {(ea?.Channel?.Guild != null ? $"guild {N(ea?.Channel?.Guild?.Id)} ({N(ea?.Channel?.Guild?.Name)})" : "")}";
-				Host.Services.GetRequiredService<ILogger<Program>>().LogCritical(ex, errorMessage);
-				await Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync(errorMessage, ex.Demystify());
-			}
 		}
 
 		private static async Task OnReactionModifiedAsync(DiscordClient discordClient, DiscordMessage message, DiscordEmoji emoji, bool added) {
