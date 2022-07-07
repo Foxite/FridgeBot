@@ -2,6 +2,7 @@
 using System.Text;
 using DSharpPlus;
 using DSharpPlus.CommandsNext;
+using DSharpPlus.CommandsNext.Exceptions;
 using DSharpPlus.Entities;
 using DSharpPlus.Exceptions;
 using Foxite.Common;
@@ -71,6 +72,11 @@ namespace FridgeBot {
 			});
 			commands.RegisterCommands<AdminModule>();
 			commands.CommandErrored += async (_, ea) => {
+				if (ea.Exception is CommandNotFoundException) {
+					await ea.Context.RespondAsync("Command not found");
+					return;
+				}
+
 				string N(object? o) => o?.ToString() ?? "null";
 				string errorMessage =
 					$"Exception in OnMessageCreated\n" +
