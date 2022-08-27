@@ -297,6 +297,10 @@ namespace FridgeBot {
 				}
 
 				dmb.AddEmbed(embedBuilder);
+
+				if (message.Embeds.Count > 0) {
+					dmb.AddEmbed(message.Embeds[0]);
+				}
 			};
 		}
 	}
