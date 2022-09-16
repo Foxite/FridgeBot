@@ -296,10 +296,24 @@ namespace FridgeBot {
 					embedBuilder.AddField(fieldName, $"[Click here to jump]({message.ReferencedMessage.JumpLink})");
 				}
 
-				dmb.AddEmbed(embedBuilder);
+				DiscordEmbed? copyEmbed = null;
 
 				if (message.Embeds.Count > 0) {
-					dmb.AddEmbed(message.Embeds[0]);
+					DiscordEmbed sourceEmbed = message.Embeds[0];
+					var copyEmbedBuilder = new DiscordEmbedBuilder(sourceEmbed);
+					// Empty embeds may occur when embedding a media link (video/image or something)
+					// Do not copy empty embeds.
+					if (copyEmbedBuilder.Author != null || !string.IsNullOrEmpty(copyEmbedBuilder.Title) || !string.IsNullOrEmpty(copyEmbedBuilder.Description) || copyEmbedBuilder.Fields.Count > 0) {
+						copyEmbed = copyEmbedBuilder.Build();
+					} else if (copyEmbedBuilder.ImageUrl != null && embedBuilder.ImageUrl == null) {
+						embedBuilder.ImageUrl = copyEmbedBuilder.ImageUrl;
+					}
+				}
+				
+				dmb.AddEmbed(embedBuilder);
+
+				if (copyEmbed != null) {
+					dmb.AddEmbed(copyEmbed);
 				}
 			};
 		}
