@@ -72,9 +72,16 @@ namespace FridgeBot {
 			});
 			commands.RegisterCommands<AdminModule>();
 			commands.CommandErrored += async (_, ea) => {
-				if (ea.Exception is CommandNotFoundException) {
-					await ea.Context.RespondAsync("Command not found");
-					return;
+				switch (ea.Exception) {
+					case CommandNotFoundException:
+						await ea.Context.RespondAsync("Command not found");
+						return;
+					case ChecksFailedException:
+						await ea.Context.RespondAsync("Checks failed 🙁");
+						return;
+					case ArgumentException { Message: "Could not find a suitable overload for the command." }:
+						await ea.Context.RespondAsync("Invalid arguments.");
+						return;
 				}
 
 				string N(object? o) => o?.ToString() ?? "null";
