@@ -2,6 +2,7 @@ using DSharpPlus;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace FridgeBot {
 	[RequireUserPermissions(Permissions.ManageGuild)]
@@ -41,6 +42,22 @@ namespace FridgeBot {
 				emote.MinimumToAdd = minimumToAdd;
 				emote.MaximumToRemove = maximumToRemove;
 				await context.RespondAsync("OK");
+			}
+		}
+
+		[Command("status")]
+		public async Task GetEmotes(CommandContext context) {
+			ServerFridge? fridge = await DbContext.Servers.Include(server => server.Emotes).FirstOrDefaultAsync(server => server.Id == context.Guild.Id);
+			if (fridge == null) {
+				await context.RespondAsync("You must use init first");
+			} else {
+				var message = $"Fridge channel: <#{fridge.ChannelId}>\nEmotes:";
+
+				foreach (ServerEmote emote in fridge.Emotes) {
+					message += $"\n- {emote.EmoteString} to add: {emote.MinimumToAdd}; to remove: {emote.MaximumToRemove}";
+				}
+
+				await context.RespondAsync(message);
 			}
 		}
 
