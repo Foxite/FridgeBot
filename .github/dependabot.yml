@@ -9,3 +9,5 @@ updates:
     directory: "/FridgeBot" # Location of package manifests
     schedule:
       interval: "daily"
+    ignore:
+      update-types: ["version-update:semver-major"]
