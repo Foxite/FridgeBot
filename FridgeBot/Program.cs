@@ -316,7 +316,7 @@ namespace FridgeBot {
 
 				DiscordEmbed? copyEmbed = null;
 
-				if (message.Embeds.Count > 0) {
+				if (message.Embeds.Count > 0 && message.Embeds[0].Type != "auto_moderation_message") {
 					DiscordEmbed sourceEmbed = message.Embeds[0];
 					var copyEmbedBuilder = new DiscordEmbedBuilder(sourceEmbed);
 					// Empty embeds may occur when embedding a media link (video/image or something)
