@@ -258,10 +258,10 @@ namespace FridgeBot {
 					MessageType.RecipientAdd => $"{authorName} joined the thread!", // Does not actually seem to happen
 					MessageType.RecipientRemove => $"{authorName} removed {(message.MentionedUsers[0] as DiscordMember)?.Nickname ?? message.MentionedUsers[0].Username} from the thread.",
 					MessageType.AutoModAlert => $"AutoMod has blocked a message from {(message.Author as DiscordMember)?.DisplayName ?? message.Author.Username}",
-					MessageType.Call => "A call was started",
-					MessageType.ChannelNameChange => "The channel was renamed",
-					MessageType.ChannelIconChange => "The channel icon was updated",
-					MessageType.ChannelFollowAdd => "A channel was followed",
+					MessageType.ChannelFollowAdd => $"{authorName} has added {message.Content} to this channel. Its most important updates will show up here.",
+					MessageType.Call => $"{authorName} has started a call.",
+					MessageType.ChannelNameChange => "ChannelNameChange", // should not happen in guilds
+					MessageType.ChannelIconChange => "ChannelIconChange", // should not happen in guilds
 					MessageType.GuildDiscoveryDisqualified => "GuildDiscoveryDisqualified",
 					MessageType.GuildDiscoveryRequalified => "GuildDiscoveryRequalified",
 					MessageType.GuildDiscoveryGracePeriodInitialWarning => "GuildDiscoveryGracePeriodInitialWarning",
