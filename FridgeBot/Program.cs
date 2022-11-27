@@ -254,6 +254,17 @@ namespace FridgeBot {
 					MessageType.TierThreeUserPremiumGuildSubscription => $"{authorName} has just boosted the server! {message.Channel.Guild.Name} has achieved **Level 3**!",
 					MessageType.RecipientAdd => $"{authorName} joined the thread!", // Does not actually seem to happen
 					MessageType.RecipientRemove => $"{authorName} removed {(message.MentionedUsers[0] as DiscordMember)?.Nickname ?? message.MentionedUsers[0].Username} from the thread.",
+					MessageType.AutoModAlert => "AutoMod has blocked a message",
+					MessageType.Call => "A call was started",
+					MessageType.ChannelNameChange => "The channel was renamed",
+					MessageType.ChannelIconChange => "The channel icon was updated",
+					MessageType.ChannelFollowAdd => "A channel was followed",
+					MessageType.GuildDiscoveryDisqualified => "GuildDiscoveryDisqualified",
+					MessageType.GuildDiscoveryRequalified => "GuildDiscoveryRequalified",
+					MessageType.GuildDiscoveryGracePeriodInitialWarning => "GuildDiscoveryGracePeriodInitialWarning",
+					MessageType.GuildDiscoveryGracePeriodFinalWarning => "GuildDiscoveryGracePeriodFinalWarning",
+					MessageType.GuildInviteReminder => "GuildInviteReminder",
+					MessageType.ContextMenuCommand => "ContextMenuCommand",
 					_ => ""
 				};
 
