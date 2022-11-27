@@ -235,7 +235,10 @@ namespace FridgeBot {
 
 				string authorName;
 				string authorAvatarUrl;
-				if (message.Author is DiscordMember authorMember) {
+				if (message.MessageType == MessageType.AutoModAlert) {
+					authorName = "AutoMod";
+					authorAvatarUrl = "https://discord.com/assets/b3e8bfa5e3780afd7a4f9a1695776e16.png";
+				} else if (message.Author is DiscordMember authorMember) {
 					authorName = authorMember.Nickname ?? authorMember.Username;
 					authorAvatarUrl = authorMember.GuildAvatarUrl ?? authorMember.AvatarUrl;
 				} else {
@@ -254,7 +257,7 @@ namespace FridgeBot {
 					MessageType.TierThreeUserPremiumGuildSubscription => $"{authorName} has just boosted the server! {message.Channel.Guild.Name} has achieved **Level 3**!",
 					MessageType.RecipientAdd => $"{authorName} joined the thread!", // Does not actually seem to happen
 					MessageType.RecipientRemove => $"{authorName} removed {(message.MentionedUsers[0] as DiscordMember)?.Nickname ?? message.MentionedUsers[0].Username} from the thread.",
-					MessageType.AutoModAlert => "AutoMod has blocked a message",
+					MessageType.AutoModAlert => $"AutoMod has blocked a message from {(message.Author as DiscordMember)?.DisplayName ?? message.Author.Username}",
 					MessageType.Call => "A call was started",
 					MessageType.ChannelNameChange => "The channel was renamed",
 					MessageType.ChannelIconChange => "The channel icon was updated",
