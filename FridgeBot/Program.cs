@@ -41,7 +41,7 @@ namespace FridgeBot {
 					isc.AddSingleton(isp => {
 						var config = new DiscordConfiguration {
 							Token = hbc.Configuration.GetSection("Discord").GetValue<string>("Token"),
-							Intents = DiscordIntents.All, // Not sure which one, but there is an intent that is necessary to get the permissions of any user.
+							Intents = DiscordIntents.GuildMessages | DiscordIntents.GuildMembers,
 							LoggerFactory = isp.GetRequiredService<ILoggerFactory>(),
 							MinimumLogLevel = LogLevel.Information,
 							MessageCacheSize = 0
