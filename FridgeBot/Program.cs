@@ -63,6 +63,18 @@ namespace FridgeBot {
 			var logger = host.Services.GetRequiredService<ILogger<Program>>();
 			var notifications = host.Services.GetRequiredService<NotificationService>();
 			var discord = host.Services.GetRequiredService<DiscordClient>();
+			
+			async Task HandleHandlerException(string name, Exception exception, DiscordMessage? message) {
+				string N(object? o) => o?.ToString() ?? "null";
+				FormattableString errorMessage =
+					@$"Exception in {name}
+					   message: {N(message?.Id)} ({N(message?.JumpLink)}), type: {N(message?.MessageType?.ToString() ?? "(null)")}, webhook: {N(message?.WebhookMessage)}
+					   author: {N(message?.Author?.Id)} ({N(message?.Author?.Username)}#{N(message?.Author?.Discriminator)}), bot: {N(message?.Author?.IsBot)}
+					   channel {N(message?.Channel?.Id)} ({N(message?.Channel?.Name)})
+					   {(message?.Channel?.Guild != null ? $"guild {N(message?.Channel?.Guild?.Id)} ({N(message?.Channel?.Guild?.Name)})" : "")}";
+				logger.LogCritical(exception, errorMessage);
+				await notifications.SendNotificationAsync(errorMessage, exception.Demystify());
+			}
 
 			var commands = discord.UseCommandsNext(new CommandsNextConfiguration() {
 				EnableMentionPrefix = true,
@@ -84,17 +96,9 @@ namespace FridgeBot {
 						return;
 				}
 
-				string N(object? o) => o?.ToString() ?? "null";
-				FormattableString errorMessage =
-					$@"Exception in OnMessageCreated
-					author: {N(ea.Context.User.Id)} ({N(ea.Context.User.Username)}#{N(ea.Context.User.Discriminator)}), bot: {N(ea.Context.User.IsBot)}
-					message: {N(ea.Context.Message.Id)} ({N(ea.Context.Message.JumpLink)}), type: {N(ea.Context.Message.MessageType?.ToString() ?? "(null)")}, webhook: {N(ea.Context.Message.WebhookMessage)}
-					channel {N(ea.Context.Channel.Id)} ({N(ea.Context.Channel.Name)})
-					{(ea.Context.Channel.Guild != null ? $"guild {N(ea.Context.Channel.Guild?.Id)} ({N(ea.Context.Channel.Guild?.Name)})" : "")}";
-				logger.LogCritical(ea.Exception, errorMessage);
-				await ea.Context.RespondAsync("Internal error, devs notified.");
 				
-				await notifications.SendNotificationAsync(errorMessage, ea.Exception.Demystify());
+				await HandleHandlerException("OnMessageCreated", ea.Exception, ea.Context.Message);
+				await ea.Context.RespondAsync("Internal error, devs notified.");
 			};
 			
 			async Task OnReactionModifiedAsync(DiscordMessage message, DiscordEmoji emoji, bool added) {
@@ -115,15 +119,7 @@ namespace FridgeBot {
 					var fridgeService = scope.ServiceProvider.GetRequiredService<FridgeService>();
 					await fridgeService.ProcessReactionAsync(message, emoji, added);
 				} catch (Exception ex) {
-					string N(object? o) => o?.ToString() ?? "null";
-					FormattableString errorMessage =
-						@$"Exception in OnReactionModifiedAsync
-					   author: {N(message?.Author?.Id)} ({N(message?.Author?.Username)}#{N(message?.Author?.Discriminator)}), bot: {N(message?.Author?.IsBot)}
-					   message: {N(message?.Id)} ({N(message?.JumpLink)}), type: {N(message?.MessageType?.ToString() ?? "(null)")}, webhook: {N(message?.WebhookMessage)}
-					   channel {N(message?.Channel?.Id)} ({N(message?.Channel?.Name)})
-					   {(message?.Channel?.Guild != null ? $"guild {N(message?.Channel?.Guild?.Id)} ({N(message?.Channel?.Guild?.Name)})" : "")}";
-					logger.LogCritical(ex, errorMessage);
-					await notifications.SendNotificationAsync(errorMessage, ex.Demystify());
+					await HandleHandlerException("OnReactionModifiedAsync", ex, message);
 				}
 			}
 
