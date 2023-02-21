@@ -1,36 +1,34 @@
 using System.Diagnostics;
-using DSharpPlus;
 using DSharpPlus.Entities;
 using DSharpPlus.Exceptions;
+using Foxite.Common;
 using Foxite.Common.Notifications;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace FridgeBot;
 
 public class FridgeService {
-		
-	private static async Task OnReactionModifiedAsync(DiscordClient discordClient, DiscordMessage message, DiscordEmoji emoji, bool added) {
+	private readonly IDbContextFactory<FridgeDbContext> m_DbContextFactory;
+	private readonly ILogger<Program> m_Logger;
+	private readonly NotificationService m_Notifications;
+	private readonly IFridgeTarget m_FridgeTarget;
+
+	public FridgeService(IDbContextFactory<FridgeDbContext> dbContextFactory, ILogger<Program> logger, NotificationService notifications, IFridgeTarget fridgeTarget) {
+		m_DbContextFactory = dbContextFactory;
+		m_Notifications = notifications;
+		m_FridgeTarget = fridgeTarget;
+		m_Logger = logger;
+	}
+
+	public async Task ProcessReactionAsync(DiscordMessage message, DiscordEmoji emoji, bool added) {
 		FridgeDbContext? dbcontext = null;
 		try {
-			// Acquire additional data such as the author, and refresh reaction counts
-			try {
-				message = await message.Channel.GetMessageAsync(message.Id);
-			} catch (NotFoundException) {
-				// Message was deleted since the event fired
-				return;
-			}
-			if (message == null) {
-				// Also deleted? idk. better safe than sorry
-				return;
-			}
-
 			if (message.Author.IsCurrent) {
 				return;
 			}
 
-			dbcontext = Host.Services.GetRequiredService<FridgeDbContext>();
+			dbcontext = await m_DbContextFactory.CreateDbContextAsync();
 			ServerEmote? serverEmote = await dbcontext.Emotes.Include(emote => emote.Server).Where(emote => emote.ServerId == message.Channel.GuildId).FirstOrDefaultAsync(emote => emote.EmoteString == emoji.ToStringInvariant());
 			if (serverEmote != null && message.CreationTimestamp >= serverEmote.Server.InitializedAt) {
 				FridgeEntry? fridgeEntry = await dbcontext.Entries.Include(entry => entry.Emotes).FirstOrDefaultAsync(entry => entry.MessageId == message.Id && entry.ServerId == message.Channel.GuildId);
@@ -63,20 +61,14 @@ public class FridgeService {
 				if (fridgeEntry != null) {
 					// TODO find a way to skip intermediate discord api calls and send/update/delete the message directly
 					if (fridgeEntry.Emotes.Count == 0) {
+						await m_FridgeTarget.DeleteFridgeMessageAsync(fridgeEntry);
 						dbcontext.Entries.Remove(fridgeEntry);
-						DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverEmote.Server.ChannelId);
-						DiscordMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId);
-						await fridgeMessage.DeleteAsync();
 					} else if (fridgeEntry.FridgeMessageId == 0) {
-						DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverEmote.Server.ChannelId);
-						DiscordMessage fridgeMessage = await fridgeChannel.SendMessageAsync(GetFridgeMessageBuilder(message, fridgeEntry, null));
-						fridgeEntry.FridgeMessageId = fridgeMessage.Id;
+						fridgeEntry.FridgeMessageId = await m_FridgeTarget.CreateFridgeMessageAsync(fridgeEntry, message);
 						dbcontext.Entries.Add(fridgeEntry);
 					} else {
 						try {
-							DiscordChannel fridgeChannel = await discordClient.GetChannelAsync(serverEmote.Server.ChannelId);
-							DiscordMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId);
-							await fridgeMessage.ModifyAsync(GetFridgeMessageBuilder(message, fridgeEntry, fridgeMessage));
+							await m_FridgeTarget.UpdateFridgeMessageAsync(fridgeEntry, message);
 						} catch (NotFoundException) {
 							dbcontext.Entries.Remove(fridgeEntry);
 						}
@@ -91,11 +83,10 @@ public class FridgeService {
 					   message: {N(message?.Id)} ({N(message?.JumpLink)}), type: {N(message?.MessageType?.ToString() ?? "(null)")}, webhook: {N(message?.WebhookMessage)}
 					   channel {N(message?.Channel?.Id)} ({N(message?.Channel?.Name)})
 					   {(message?.Channel?.Guild != null ? $"guild {N(message?.Channel?.Guild?.Id)} ({N(message?.Channel?.Guild?.Name)})" : "")}";
-			Host.Services.GetRequiredService<ILogger<Program>>().LogCritical(ex, errorMessage);
-			await Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync(errorMessage, ex.Demystify());
+			m_Logger.LogCritical(ex, errorMessage);
+			await m_Notifications.SendNotificationAsync(errorMessage, ex.Demystify());
 		} finally {
 			if (dbcontext != null) {
-				await dbcontext.SaveChangesAsync();
 				await dbcontext.DisposeAsync();
 			}
 		}

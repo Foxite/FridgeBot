@@ -1,6 +1,7 @@
 using System.Text;
 using DSharpPlus;
 using DSharpPlus.Entities;
+using DSharpPlus.Exceptions;
 using Foxite.Common.Notifications;
 using Microsoft.Extensions.Logging;
 
@@ -10,21 +11,37 @@ public class DiscordFridgeTarget : IFridgeTarget {
 	private readonly HttpClient m_Http;
 	private readonly ILogger<Program> m_Logger;
 	private readonly NotificationService m_NotificationService;
-		
-	public DiscordFridgeTarget(HttpClient http, ILogger<Program> logger, NotificationService notificationService) {
+	private readonly DiscordClient m_DiscordClient;
+
+	public DiscordFridgeTarget(HttpClient http, ILogger<Program> logger, NotificationService notificationService, DiscordClient discordClient) {
 		m_Http = http;
 		m_Logger = logger;
 		m_NotificationService = notificationService;
+		m_DiscordClient = discordClient;
 	}
 		
-	public Task<ulong> CreateFridgeMessageAsync(DiscordMessage message, FridgeEntry fridgeEntry) {
-		throw new NotImplementedException();
+	public async Task<ulong> CreateFridgeMessageAsync(FridgeEntry fridgeEntry, DiscordMessage message) {
+		DiscordChannel fridgeChannel = await m_DiscordClient.GetChannelAsync(fridgeEntry.Server.ChannelId);
+		DiscordMessage fridgeMessage = await fridgeChannel.SendMessageAsync(GetFridgeMessageBuilder(message, fridgeEntry, null));
+		return fridgeMessage.Id;
 	}
-	public Task UpdateFridgeMessageAsync(DiscordMessage message, FridgeEntry fridgeEntry) {
-		throw new NotImplementedException();
+	
+	public async Task UpdateFridgeMessageAsync(FridgeEntry fridgeEntry, DiscordMessage message) {
+		DiscordChannel fridgeChannel = await m_DiscordClient.GetChannelAsync(fridgeEntry.Server.ChannelId);
+		try {
+			DiscordMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId);
+			await fridgeMessage.ModifyAsync(GetFridgeMessageBuilder(message, fridgeEntry, fridgeMessage));
+		} catch (NotFoundException ex) {
+			throw new FileNotFoundException("The fridge message has been deleted externally", ex);
+		}
 	}
-	public Task DeleteFridgeMessageAsync(FridgeEntry fridgeEntry) {
-		throw new NotImplementedException();
+	
+	public async Task DeleteFridgeMessageAsync(FridgeEntry fridgeEntry) {
+		DiscordChannel fridgeChannel = await m_DiscordClient.GetChannelAsync(fridgeEntry.Server.ChannelId);
+		try {
+			DiscordMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId);
+			await fridgeMessage.DeleteAsync();
+		} catch (NotFoundException) { }
 	}
 		
 	private Action<DiscordMessageBuilder> GetFridgeMessageBuilder(DiscordMessage message, FridgeEntry fridgeEntry, DiscordMessage? existingFridgeMessage) {
@@ -90,6 +107,7 @@ public class DiscordFridgeTarget : IFridgeTarget {
 				MessageType.AutoModAlert => $"AutoMod has blocked a message from {(message.Author as DiscordMember)?.DisplayName ?? message.Author.Username}",
 				MessageType.ChannelFollowAdd => $"{authorName} has added {message.Content} to this channel. Its most important updates will show up here.",
 				MessageType.Call => $"{authorName} has started a call.",
+				/*
 				MessageType.ChannelNameChange => "ChannelNameChange", // should not happen in guilds
 				MessageType.ChannelIconChange => "ChannelIconChange", // should not happen in guilds
 				MessageType.GuildDiscoveryDisqualified => "GuildDiscoveryDisqualified",
@@ -98,7 +116,8 @@ public class DiscordFridgeTarget : IFridgeTarget {
 				MessageType.GuildDiscoveryGracePeriodFinalWarning => "GuildDiscoveryGracePeriodFinalWarning",
 				MessageType.GuildInviteReminder => "GuildInviteReminder",
 				MessageType.ContextMenuCommand => "ContextMenuCommand",
-				_ => ""
+				*/
+				_ => $"Unknown message type: {message.MessageType.ToString()}"
 			};
 
 			string? imageUrl = null;
@@ -136,14 +155,14 @@ public class DiscordFridgeTarget : IFridgeTarget {
 				Url = message.JumpLink.ToString()
 			};
 				
-			embedBuilder.AddField("Jump to message", $"[Click here to jump]({message.JumpLink})");
+			embedBuilder.AddField("Jump to message", Formatter.MaskedUrl("Click here to jump", message.JumpLink));
 
 			if (message.ReferencedMessage != null) {
 				string fieldName = "Replying to " + replyingToNickname;
 				if (fieldName.Length > 255) {
 					fieldName = fieldName[..255];
 				}
-				embedBuilder.AddField(fieldName, $"[Click here to jump]({message.ReferencedMessage.JumpLink})");
+				embedBuilder.AddField(fieldName, Formatter.MaskedUrl("Click here to jump", message.ReferencedMessage.JumpLink));
 			}
 
 			DiscordEmbed? copyEmbed = null;

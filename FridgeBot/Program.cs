@@ -2,6 +2,8 @@
 using DSharpPlus;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Exceptions;
+using DSharpPlus.Entities;
+using DSharpPlus.Exceptions;
 using Foxite.Common;
 using Foxite.Common.Notifications;
 using Microsoft.EntityFrameworkCore;
@@ -12,10 +14,8 @@ using Microsoft.Extensions.Logging;
 
 namespace FridgeBot {
 	public sealed class Program {
-		public static IHost Host { get; set; }
-
 		private static IHostBuilder CreateHostBuilder(string[] args) =>
-			Microsoft.Extensions.Hosting.Host.CreateDefaultBuilder(args)
+			Host.CreateDefaultBuilder(args)
 				.ConfigureAppConfiguration((hostingContext, configuration) => {
 					configuration.Sources.Clear();
 
@@ -53,14 +53,16 @@ namespace FridgeBot {
 					isc.AddNotifications().AddDiscord(hbc.Configuration.GetSection("DiscordNotifications"));
 				})
 				.Build();
-
-			Host = host;
-
+			
 			await using (var dbContext = host.Services.GetRequiredService<FridgeDbContext>()) {
 				await dbContext.Database.MigrateAsync();
 			}
 
+			var logger = host.Services.GetRequiredService<ILogger<Program>>();
+			var notifications = host.Services.GetRequiredService<NotificationService>();
+			var fridgeService = host.Services.GetRequiredService<FridgeService>();
 			var discord = host.Services.GetRequiredService<DiscordClient>();
+
 			var commands = discord.UseCommandsNext(new CommandsNextConfiguration() {
 				EnableMentionPrefix = true,
 				EnableDefaultHelp = true,
@@ -82,22 +84,38 @@ namespace FridgeBot {
 				}
 
 				string N(object? o) => o?.ToString() ?? "null";
-				string errorMessage =
-					$"Exception in OnMessageCreated\n" +
-					$"author: {N(ea.Context.User?.Id)} ({N(ea.Context.User?.Username)}#{N(ea.Context.User?.Discriminator)}), bot: {N(ea.Context.User?.IsBot)}\n" +
-					$"message: {N(ea.Context.Message?.Id)} ({N(ea.Context.Message?.JumpLink)}), type: {N(ea.Context.Message?.MessageType?.ToString() ?? "(null)")}, webhook: {N(ea.Context.Message?.WebhookMessage)}\n" +
-					$"channel {N(ea.Context.Channel?.Id)} ({N(ea.Context.Channel?.Name)})\n" +
-					$"{(ea.Context.Channel?.Guild != null ? $"guild {N(ea.Context.Channel?.Guild?.Id)} ({N(ea.Context.Channel?.Guild?.Name)})" : "")}";
-				Host.Services.GetRequiredService<ILogger<Program>>().LogCritical(ea.Exception, errorMessage);
+				FormattableString errorMessage =
+					$@"Exception in OnMessageCreated
+					author: {N(ea.Context.User.Id)} ({N(ea.Context.User.Username)}#{N(ea.Context.User.Discriminator)}), bot: {N(ea.Context.User.IsBot)}
+					message: {N(ea.Context.Message.Id)} ({N(ea.Context.Message.JumpLink)}), type: {N(ea.Context.Message.MessageType?.ToString() ?? "(null)")}, webhook: {N(ea.Context.Message.WebhookMessage)}
+					channel {N(ea.Context.Channel.Id)} ({N(ea.Context.Channel.Name)})
+					{(ea.Context.Channel.Guild != null ? $"guild {N(ea.Context.Channel.Guild?.Id)} ({N(ea.Context.Channel.Guild?.Name)})" : "")}";
+				logger.LogCritical(ea.Exception, errorMessage);
 				await ea.Context.RespondAsync("Internal error, devs notified.");
 				
-				await Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync(errorMessage, ea.Exception.Demystify());
+				await notifications.SendNotificationAsync(errorMessage, ea.Exception.Demystify());
 			};
+			
+			async Task OnReactionModifiedAsync(DiscordMessage message, DiscordEmoji emoji, bool added) {
+				// Acquire additional data such as the author, and refresh reaction counts
+				try {
+					message = await message.Channel.GetMessageAsync(message.Id);
+				} catch (NotFoundException) {
+					// Message was deleted since the event fired
+					return;
+				}
+				if (message == null) {
+					// Also deleted? idk. better safe than sorry
+					return;
+				}
 
-			discord.MessageReactionAdded += (client, ea) => OnReactionModifiedAsync(client, ea.Message, ea.Emoji, true);
-			discord.MessageReactionRemoved += (client, ea) => OnReactionModifiedAsync(client, ea.Message, ea.Emoji, false);
+				await fridgeService.ProcessReactionAsync(message, emoji, added);
+			}
 
-			discord.ClientErrored += (_, eventArgs) => Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync($"Exception in {eventArgs.EventName}", eventArgs.Exception);
+			discord.MessageReactionAdded += (_, ea) => OnReactionModifiedAsync(ea.Message, ea.Emoji, true);
+			discord.MessageReactionRemoved += (_, ea) => OnReactionModifiedAsync(ea.Message, ea.Emoji, false);
+
+			discord.ClientErrored += (_, eventArgs) => notifications.SendNotificationAsync($"Exception in {eventArgs.EventName}", eventArgs.Exception);
 			
 			await discord.ConnectAsync();
 
