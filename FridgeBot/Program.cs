@@ -25,7 +25,7 @@ namespace FridgeBot {
 						.AddEnvironmentVariables("FRIDGE_")
 						.AddCommandLine(args);
 				});
-		
+
 		private static async Task Main(string[] args) {
 			using IHost host = CreateHostBuilder(args)
 				.ConfigureLogging((_, builder) => {
@@ -47,6 +47,8 @@ namespace FridgeBot {
 					});
 
 					isc.AddSingleton<HttpClient>();
+					isc.AddScoped<FridgeService>();
+					isc.AddSingleton<IFridgeTarget, DiscordFridgeTarget>();
 					
 					isc.ConfigureDbContext<FridgeDbContext>();
 					
@@ -60,7 +62,6 @@ namespace FridgeBot {
 
 			var logger = host.Services.GetRequiredService<ILogger<Program>>();
 			var notifications = host.Services.GetRequiredService<NotificationService>();
-			var fridgeService = host.Services.GetRequiredService<FridgeService>();
 			var discord = host.Services.GetRequiredService<DiscordClient>();
 
 			var commands = discord.UseCommandsNext(new CommandsNextConfiguration() {
@@ -97,23 +98,37 @@ namespace FridgeBot {
 			};
 			
 			async Task OnReactionModifiedAsync(DiscordMessage message, DiscordEmoji emoji, bool added) {
-				// Acquire additional data such as the author, and refresh reaction counts
 				try {
-					message = await message.Channel.GetMessageAsync(message.Id);
-				} catch (NotFoundException) {
-					// Message was deleted since the event fired
-					return;
-				}
-				if (message == null) {
-					// Also deleted? idk. better safe than sorry
-					return;
-				}
+					// Acquire additional data such as the author, and refresh reaction counts
+					try {
+						message = await message.Channel.GetMessageAsync(message.Id);
+					} catch (NotFoundException) {
+						// Message was deleted since the event fired
+						return;
+					}
+					if (message == null) {
+						// Also deleted? idk. better safe than sorry
+						return;
+					}
 
-				await fridgeService.ProcessReactionAsync(message, emoji, added);
+					await using var scope = host.Services.CreateAsyncScope();
+					var fridgeService = scope.ServiceProvider.GetRequiredService<FridgeService>();
+					await fridgeService.ProcessReactionAsync(message, emoji, added);
+				} catch (Exception ex) {
+					string N(object? o) => o?.ToString() ?? "null";
+					FormattableString errorMessage =
+						@$"Exception in OnReactionModifiedAsync
+					   author: {N(message?.Author?.Id)} ({N(message?.Author?.Username)}#{N(message?.Author?.Discriminator)}), bot: {N(message?.Author?.IsBot)}
+					   message: {N(message?.Id)} ({N(message?.JumpLink)}), type: {N(message?.MessageType?.ToString() ?? "(null)")}, webhook: {N(message?.WebhookMessage)}
+					   channel {N(message?.Channel?.Id)} ({N(message?.Channel?.Name)})
+					   {(message?.Channel?.Guild != null ? $"guild {N(message?.Channel?.Guild?.Id)} ({N(message?.Channel?.Guild?.Name)})" : "")}";
+					logger.LogCritical(ex, errorMessage);
+					await notifications.SendNotificationAsync(errorMessage, ex.Demystify());
+				}
 			}
 
-			discord.MessageReactionAdded += (_, ea) => OnReactionModifiedAsync(ea.Message, ea.Emoji, true);
-			discord.MessageReactionRemoved += (_, ea) => OnReactionModifiedAsync(ea.Message, ea.Emoji, false);
+			discord.MessageReactionAdded += (sender, ea) => _ = OnReactionModifiedAsync(ea.Message, ea.Emoji, true);
+			discord.MessageReactionRemoved += (sender, ea) => _ = OnReactionModifiedAsync(ea.Message, ea.Emoji, false);
 
 			discord.ClientErrored += (_, eventArgs) => notifications.SendNotificationAsync($"Exception in {eventArgs.EventName}", eventArgs.Exception);
 			

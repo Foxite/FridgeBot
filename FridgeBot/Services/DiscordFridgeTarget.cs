@@ -8,19 +8,20 @@ using Microsoft.Extensions.Logging;
 namespace FridgeBot;
 
 public class DiscordFridgeTarget : IFridgeTarget {
+	private readonly ILogger<DiscordFridgeTarget> m_Logger;
+	private readonly NotificationService m_Notifications;
 	private readonly HttpClient m_Http;
-	private readonly ILogger<Program> m_Logger;
-	private readonly NotificationService m_NotificationService;
 	private readonly DiscordClient m_DiscordClient;
 
-	public DiscordFridgeTarget(HttpClient http, ILogger<Program> logger, NotificationService notificationService, DiscordClient discordClient) {
-		m_Http = http;
+	public DiscordFridgeTarget(ILogger<DiscordFridgeTarget> logger, NotificationService notifications, HttpClient http, DiscordClient discordClient) {
 		m_Logger = logger;
-		m_NotificationService = notificationService;
+		m_Notifications = notifications;
+		m_Http = http;
 		m_DiscordClient = discordClient;
 	}
 		
 	public async Task<ulong> CreateFridgeMessageAsync(FridgeEntry fridgeEntry, DiscordMessage message) {
+		// TODO find a way to skip intermediate discord api calls and send/update/delete the message directly
 		DiscordChannel fridgeChannel = await m_DiscordClient.GetChannelAsync(fridgeEntry.Server.ChannelId);
 		DiscordMessage fridgeMessage = await fridgeChannel.SendMessageAsync(GetFridgeMessageBuilder(message, fridgeEntry, null));
 		return fridgeMessage.Id;
@@ -134,7 +135,7 @@ public class DiscordFridgeTarget : IFridgeTarget {
 							dmb.WithFile(videoAttachment.FileName, memory);
 						} catch (Exception e) {
 							m_Logger.LogError(e, "Error downloading attachment {videoUrl}", videoAttachment.Url);
-							m_NotificationService.SendNotificationAsync($"Error downloading attachment {videoAttachment.Url}, ignoring", e);
+							m_Notifications.SendNotificationAsync($"Error downloading attachment {videoAttachment.Url}, ignoring", e);
 						}
 					}
 				}
