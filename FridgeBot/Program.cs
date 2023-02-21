@@ -106,7 +106,10 @@ namespace FridgeBot {
 
 			await host.RunAsync();
 		}
+	}
 
+	public class FridgeService {
+		
 		private static async Task OnReactionModifiedAsync(DiscordClient discordClient, DiscordMessage message, DiscordEmoji emoji, bool added) {
 			FridgeDbContext? dbcontext = null;
 			try {
@@ -196,8 +199,24 @@ namespace FridgeBot {
 				}
 			}
 		}
+	}
 
-		private static Action<DiscordMessageBuilder> GetFridgeMessageBuilder(DiscordMessage message, FridgeEntry fridgeEntry, DiscordMessage? existingFridgeMessage) {
+	public interface IFridgeTarget {
+		
+	}
+
+	public class DiscordFridgeTarget : IFridgeTarget {
+		private readonly HttpClient m_Http;
+		private readonly ILogger<Program> m_Logger;
+		private readonly NotificationService m_NotificationService;
+		
+		public DiscordFridgeTarget(HttpClient http, ILogger<Program> logger, NotificationService notificationService) {
+			m_Http = http;
+			m_Logger = logger;
+			m_NotificationService = notificationService;
+		}
+		
+		private Action<DiscordMessageBuilder> GetFridgeMessageBuilder(DiscordMessage message, FridgeEntry fridgeEntry, DiscordMessage? existingFridgeMessage) {
 			return dmb => {
 				string? replyingToNickname = null;
 				if (message.ReferencedMessage != null) {
@@ -277,16 +296,15 @@ namespace FridgeBot {
 					if (imageUrl == null) {
 						DiscordAttachment? videoAttachment = message.Attachments.FirstOrDefault(att => att.MediaType != null && att.MediaType.StartsWith("video/"));
 						if (videoAttachment != null && (existingFridgeMessage == null || existingFridgeMessage.Attachments.Count == 0)) {
-							var http = Host.Services.GetRequiredService<HttpClient>();
 							try {
-								using Stream download = http.GetStreamAsync(videoAttachment.Url).Result;
+								using Stream download = m_Http.GetStreamAsync(videoAttachment.Url).Result;
 								var memory = new MemoryStream();
 								download.CopyTo(memory);
 								memory.Position = 0;
 								dmb.WithFile(videoAttachment.FileName, memory);
 							} catch (Exception e) {
-								Host.Services.GetRequiredService<ILogger<Program>>().LogError(e, "Error downloading attachment {videoUrl}", videoAttachment.Url);
-								Host.Services.GetRequiredService<NotificationService>().SendNotificationAsync($"Error downloading attachment {videoAttachment.Url}, ignoring", e);
+								m_Logger.LogError(e, "Error downloading attachment {videoUrl}", videoAttachment.Url);
+								m_NotificationService.SendNotificationAsync($"Error downloading attachment {videoAttachment.Url}, ignoring", e);
 							}
 						}
 					}
