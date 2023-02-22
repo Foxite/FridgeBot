@@ -20,18 +20,18 @@ public class DiscordFridgeTarget : IFridgeTarget {
 		m_DiscordClient = discordClient;
 	}
 		
-	public async Task<ulong> CreateFridgeMessageAsync(FridgeEntry fridgeEntry, DiscordMessage message) {
+	public async Task<ulong> CreateFridgeMessageAsync(FridgeEntry fridgeEntry, IDiscordMessage message) {
 		// TODO find a way to skip intermediate discord api calls and send/update/delete the message directly
 		DiscordChannel fridgeChannel = await m_DiscordClient.GetChannelAsync(fridgeEntry.Server.ChannelId);
-		DiscordMessage fridgeMessage = await fridgeChannel.SendMessageAsync(GetFridgeMessageBuilder(message, fridgeEntry, null));
+		DiscordMessage fridgeMessage = await fridgeChannel.SendMessageAsync(GetFridgeMessageBuilder(((RealDiscordMessage) message).Message, fridgeEntry, null));
 		return fridgeMessage.Id;
 	}
 	
-	public async Task UpdateFridgeMessageAsync(FridgeEntry fridgeEntry, DiscordMessage message) {
+	public async Task UpdateFridgeMessageAsync(FridgeEntry fridgeEntry, IDiscordMessage message) {
 		DiscordChannel fridgeChannel = await m_DiscordClient.GetChannelAsync(fridgeEntry.Server.ChannelId);
 		try {
 			DiscordMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId);
-			await fridgeMessage.ModifyAsync(GetFridgeMessageBuilder(message, fridgeEntry, fridgeMessage));
+			await fridgeMessage.ModifyAsync(GetFridgeMessageBuilder(((RealDiscordMessage) message).Message, fridgeEntry, fridgeMessage));
 		} catch (NotFoundException ex) {
 			throw new FileNotFoundException("The fridge message has been deleted externally", ex);
 		}

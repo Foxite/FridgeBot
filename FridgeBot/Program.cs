@@ -73,7 +73,7 @@ namespace FridgeBot {
 					   channel {N(message?.Channel?.Id)} ({N(message?.Channel?.Name)})
 					   {(message?.Channel?.Guild != null ? $"guild {N(message?.Channel?.Guild?.Id)} ({N(message?.Channel?.Guild?.Name)})" : "")}";
 				logger.LogCritical(exception, errorMessage);
-				await notifications.SendNotificationAsync(errorMessage, exception.Demystify());
+				//await notifications.SendNotificationAsync(errorMessage, exception.Demystify());
 			}
 
 			var commands = discord.UseCommandsNext(new CommandsNextConfiguration() {
@@ -117,14 +117,20 @@ namespace FridgeBot {
 
 					await using var scope = host.Services.CreateAsyncScope();
 					var fridgeService = scope.ServiceProvider.GetRequiredService<FridgeService>();
-					await fridgeService.ProcessReactionAsync(message, emoji, added);
+					await fridgeService.ProcessReactionAsync(new RealDiscordMessage(message));
 				} catch (Exception ex) {
 					await HandleHandlerException("OnReactionModifiedAsync", ex, message);
 				}
 			}
 
-			discord.MessageReactionAdded += (sender, ea) => _ = OnReactionModifiedAsync(ea.Message, ea.Emoji, true);
-			discord.MessageReactionRemoved += (sender, ea) => _ = OnReactionModifiedAsync(ea.Message, ea.Emoji, false);
+			discord.MessageReactionAdded += (sender, ea) => {
+				_ = OnReactionModifiedAsync(ea.Message, ea.Emoji, true);
+				return Task.CompletedTask;
+			};
+			discord.MessageReactionRemoved += (sender, ea) => {
+				_ = OnReactionModifiedAsync(ea.Message, ea.Emoji, false);
+				return Task.CompletedTask;
+			};
 
 			discord.ClientErrored += (_, eventArgs) => notifications.SendNotificationAsync($"Exception in {eventArgs.EventName}", eventArgs.Exception);
 			

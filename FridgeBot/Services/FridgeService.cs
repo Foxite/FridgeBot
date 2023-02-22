@@ -1,6 +1,3 @@
-using System.Diagnostics;
-using DSharpPlus.Entities;
-using DSharpPlus.Exceptions;
 using Microsoft.EntityFrameworkCore;
 
 namespace FridgeBot;
@@ -14,42 +11,52 @@ public class FridgeService {
 		m_FridgeTarget = fridgeTarget;
 	}
 
-	public async Task ProcessReactionAsync(DiscordMessage message, DiscordEmoji emoji, bool added) {
-		if (message.Author.IsCurrent) {
+	public async Task ProcessReactionAsync(IDiscordMessage message) {
+		if (!message.GuildId.HasValue) {
+			return;
+		}
+		
+		if (message.AuthorIsCurrent) {
 			return;
 		}
 
-		ServerEmote? serverEmote = await m_DbContext.Emotes.Include(emote => emote.Server).Where(emote => emote.ServerId == message.Channel.GuildId).FirstOrDefaultAsync(emote => emote.EmoteString == emoji.ToStringInvariant());
-		if (serverEmote != null && message.CreationTimestamp >= serverEmote.Server.InitializedAt) {
-			FridgeEntry? fridgeEntry = await m_DbContext.Entries.Include(entry => entry.Server).Include(entry => entry.Emotes).FirstOrDefaultAsync(entry => entry.MessageId == message.Id && entry.ServerId == message.Channel.GuildId);
-			FridgeEntryEmote? entryEmote = fridgeEntry?.Emotes.FirstOrDefault(fee => fee.EmoteString == emoji.ToStringInvariant());
-			DiscordReaction? messageReaction = message.Reactions.FirstOrDefault(reaction => reaction.Emoji == emoji);
-
-			if (added) {
-				Debug.Assert(messageReaction != null);
-				if (entryEmote == null && messageReaction.Count >= serverEmote.MinimumToAdd) {
-					entryEmote = new FridgeEntryEmote() {
-						EmoteString = emoji.ToStringInvariant()
-					};
-
-					fridgeEntry ??= new FridgeEntry() {
-						ChannelId = message.Channel.Id,
-						MessageId = message.Id,
-						ServerId = message.Channel.Guild.Id,
-						Emotes = new List<FridgeEntryEmote>(),
-						Server = serverEmote.Server,
-					};
-
-					fridgeEntry.Emotes.Add(entryEmote);
-				}
-			} else {
-				if (entryEmote != null && (messageReaction == null || messageReaction.Count <= serverEmote.MaximumToRemove)) {
-					Debug.Assert(fridgeEntry != null);
-					fridgeEntry.Emotes.Remove(entryEmote);
-				}
+		ServerFridge? fridgeServer = await m_DbContext.Servers.Include(server => server.Emotes).FirstOrDefaultAsync(server => server.Id == message.GuildId);
+		if (fridgeServer != null) {
+			FridgeEntry? fridgeEntry = await m_DbContext.Entries.Include(entry => entry.Emotes).FirstOrDefaultAsync(entry => entry.ServerId == fridgeServer.Id && entry.MessageId == message.Id);
+			bool newEntry = false;
+			if (fridgeEntry == null) {
+				newEntry = true;
+				fridgeEntry = new FridgeEntry() {
+					ServerId = fridgeServer.Id,
+					Server = fridgeServer,
+					ChannelId = message.ChannelId,
+					MessageId = message.Id,
+					Emotes = new List<FridgeEntryEmote>()
+				};
+			}
+			
+			// Update FridgeEntry
+			foreach (FridgeEntryEmote removeEmote in
+			         from entryEmote in fridgeEntry.Emotes
+			         let reaction = message.Reactions.FirstOrDefault(reaction => reaction.Emoji.ToStringInvariant() == entryEmote.EmoteString)
+			         where reaction == null || reaction.Count < fridgeServer.Emotes.First(serverEmote => serverEmote.EmoteString == entryEmote.EmoteString).MaximumToRemove
+			         let item = fridgeEntry.Emotes.FirstOrDefault(emote => emote.EmoteString == entryEmote.EmoteString)
+			         where item != null
+			         select item) {
+				fridgeEntry.Emotes.Remove(removeEmote);
+			}
+			
+			foreach (FridgeEntryEmote addEmote in
+			         from reaction in message.Reactions
+			         let serverEmote = fridgeServer.Emotes.FirstOrDefault(emote => emote.EmoteString == reaction.Emoji.ToStringInvariant())
+			         where serverEmote != null && reaction.Count >= serverEmote.MinimumToAdd && !fridgeEntry.Emotes.Any(entryEmote => entryEmote.EmoteString == serverEmote.EmoteString)
+			         let entryEmote = new FridgeEntryEmote { EmoteString = reaction.Emoji.ToStringInvariant() }
+			         select entryEmote) {
+				fridgeEntry.Emotes.Add(addEmote);
 			}
 
-			if (fridgeEntry != null) {
+			// Update fridge message, if necessary
+			if (!(newEntry && fridgeEntry.Emotes.Count == 0)) {
 				if (fridgeEntry.Emotes.Count == 0) {
 					await m_FridgeTarget.DeleteFridgeMessageAsync(fridgeEntry);
 					m_DbContext.Entries.Remove(fridgeEntry);
@@ -59,7 +66,7 @@ public class FridgeService {
 				} else {
 					try {
 						await m_FridgeTarget.UpdateFridgeMessageAsync(fridgeEntry, message);
-					} catch (NotFoundException) {
+					} catch (FileNotFoundException) {
 						m_DbContext.Entries.Remove(fridgeEntry);
 					}
 				}

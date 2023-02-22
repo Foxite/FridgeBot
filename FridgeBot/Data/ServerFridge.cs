@@ -14,5 +14,21 @@ namespace FridgeBot {
 		
 		public ICollection<FridgeEntry> FridgeEntries { get; set; }
 		public ICollection<ServerEmote> Emotes { get; set; }
+		
+		public ServerFridge() {}
+
+		public ServerFridge(ulong channelId, DateTimeOffset initializedAt) {
+			ChannelId = channelId;
+			InitializedAt = initializedAt;
+			FridgeEntries = new List<FridgeEntry>();
+			Emotes = new List<ServerEmote>();
+		}
+
+		public ServerFridge AddEmote(ServerEmote emote) {
+			emote.ServerId = Id;
+			emote.Server = this;
+			Emotes.Add(emote);
+			return this;
+		}
 	}
 }
