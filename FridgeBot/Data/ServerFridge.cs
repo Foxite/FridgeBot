@@ -17,7 +17,8 @@ namespace FridgeBot {
 		
 		public ServerFridge() {}
 
-		public ServerFridge(ulong channelId, DateTimeOffset initializedAt) {
+		public ServerFridge(ulong id, ulong channelId, DateTimeOffset initializedAt) {
+			Id = id;
 			ChannelId = channelId;
 			InitializedAt = initializedAt;
 			FridgeEntries = new List<FridgeEntry>();
