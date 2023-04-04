@@ -132,7 +132,7 @@ public class DiscordFridgeTarget : IFridgeTarget {
 							var memory = new MemoryStream();
 							download.CopyTo(memory);
 							memory.Position = 0;
-							dmb.WithFile(videoAttachment.FileName, memory);
+							dmb.AddFile(videoAttachment.FileName, memory);
 						} catch (Exception e) {
 							m_Logger.LogError(e, "Error downloading attachment {videoUrl}", videoAttachment.Url);
 							m_Notifications.SendNotificationAsync($"Error downloading attachment {videoAttachment.Url}, ignoring", e);
