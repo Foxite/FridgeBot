@@ -1,46 +1,48 @@
 using CorporateEspionage;
 using CorporateEspionage.NUnit;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace FridgeBot.Tests;
 
-// These tests require a running database, see OneTimeSetup.
-public class Tests : IDisposable {
+public class Tests {
 	private FridgeDbContext? m_DbContext;
 	private Spy<IFridgeTarget> m_MockTarget;
 	private FridgeService m_FridgeService;
 	private SpyGenerator m_SpyGenerator;
 	private ServerFridge m_ServerFridge;
+	private string m_SqliteFile;
 
 	[OneTimeSetUp]
 	public void OneTimeSetup() {
+		//m_SqliteFile = Path.GetTempFileName();
+		m_SqliteFile = "/home/foxite/fridgebot.db";
+		
 		m_SpyGenerator = new SpyGenerator();
 	}
 
 	[SetUp]
 	public async Task Setup() {
 		if (m_DbContext != null) {
-			await m_DbContext.Database.EnsureDeletedAsync();
 			await m_DbContext.DisposeAsync();
 			m_DbContext = null;
 		}
 
 		m_DbContext = new FridgeDbContext(
 			new DbContextOptionsBuilder<FridgeDbContext>()
-				.UseNpgsql(Environment.GetEnvironmentVariable("TESTDB") ?? "Host=localhost; Port=5432; Username=fridgebot; Password=test123")
+				.UseSqlite("DataSource=:memory:")
 				.Options
 		);
 
-		await m_DbContext.Database.EnsureDeletedAsync();
+		await m_DbContext.Database.OpenConnectionAsync(); // must be done for some reason
 		await m_DbContext.Database.EnsureCreatedAsync();
 
 		m_ServerFridge = new ServerFridge(123, 2, new DateTimeOffset(2023, 02, 22, 12, 00, 00, TimeSpan.Zero))
 			.AddEmote(new ServerEmote("hi!", 2, 0))
 			.AddEmote(new ServerEmote("hey!", 2, 1))
 			.AddEmote(new ServerEmote("hello!", 1, 1));
-		m_DbContext.Servers.Add(
-			m_ServerFridge
-		);
+		
+		m_DbContext.Servers.Add(m_ServerFridge);
 
 		await m_DbContext.SaveChangesAsync();
 		
@@ -49,6 +51,12 @@ public class Tests : IDisposable {
 		// However, during a test, I can assert that executing an (async) delegate results in a particular function being called on the mock object, and I can perform assertions on its parameters.
 		m_MockTarget = m_SpyGenerator.CreateSpy<IFridgeTarget>();
 		m_FridgeService = new FridgeService(m_DbContext, m_MockTarget.Object);
+	}
+	
+	[OneTimeTearDown]
+	public void Teardown() {
+		m_DbContext?.Dispose();
+		File.Delete(m_SqliteFile);
 	}
 
 	[Test]
@@ -191,9 +199,5 @@ public class Tests : IDisposable {
 			);
 			Assert.That(m_MockTarget, Was.NoOtherCalls());
 		});
-	}
-
-	public void Dispose() {
-		m_DbContext?.Dispose();
 	}
 }

@@ -6,7 +6,6 @@ RUN dotnet restore "FridgeBot/FridgeBot.csproj"
 COPY . .
 WORKDIR "/src/"
 RUN dotnet build "FridgeBot/FridgeBot.csproj" -c Release -o /app/build
-ENV TESTDB="Host=localhost; Port=5432; Username=fridgebot; Password=test123"
 RUN dotnet test
 RUN dotnet publish "FridgeBot/FridgeBot.csproj" -c Release -o /app/publish
 
