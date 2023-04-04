@@ -11,13 +11,9 @@ public class Tests {
 	private FridgeService m_FridgeService;
 	private SpyGenerator m_SpyGenerator;
 	private ServerFridge m_ServerFridge;
-	private string m_SqliteFile;
 
 	[OneTimeSetUp]
 	public void OneTimeSetup() {
-		//m_SqliteFile = Path.GetTempFileName();
-		m_SqliteFile = "/home/foxite/fridgebot.db";
-		
 		m_SpyGenerator = new SpyGenerator();
 	}
 
@@ -56,7 +52,6 @@ public class Tests {
 	[OneTimeTearDown]
 	public void Teardown() {
 		m_DbContext?.Dispose();
-		File.Delete(m_SqliteFile);
 	}
 
 	[Test]
