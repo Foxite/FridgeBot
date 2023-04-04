@@ -11,6 +11,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Qmmands;
 
 namespace FridgeBot {
 	public sealed class Program {
@@ -53,6 +54,8 @@ namespace FridgeBot {
 					isc.ConfigureDbContext<FridgeDbContext>();
 					
 					isc.AddNotifications().AddDiscord(hbc.Configuration.GetSection("DiscordNotifications"));
+
+					isc.AddSingleton<CommandService>();
 				})
 				.Build();
 			
@@ -76,6 +79,7 @@ namespace FridgeBot {
 				//await notifications.SendNotificationAsync(errorMessage, exception.Demystify());
 			}
 
+			/*
 			var commands = discord.UseCommandsNext(new CommandsNextConfiguration() {
 				EnableMentionPrefix = true,
 				EnableDefaultHelp = true,
@@ -100,7 +104,8 @@ namespace FridgeBot {
 				await HandleHandlerException("OnMessageCreated", ea.Exception, ea.Context.Message);
 				await ea.Context.RespondAsync("Internal error, devs notified.");
 			};
-			
+			*/
+
 			async Task OnReactionModifiedAsync(DiscordMessage message, DiscordEmoji emoji, bool added) {
 				try {
 					// Acquire additional data such as the author, and refresh reaction counts
