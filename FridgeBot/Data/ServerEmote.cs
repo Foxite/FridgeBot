@@ -20,5 +20,12 @@ namespace FridgeBot {
 		/// When the emote count is less than this, the message gets removed from the fridge if it is present.
 		/// </summary>
 		public int MaximumToRemove { get; set; }
+
+		public ServerEmote() {}
+		public ServerEmote(string emoteString, int minimumToAdd, int maximumToRemove) {
+			EmoteString = emoteString;
+			MinimumToAdd = minimumToAdd;
+			MaximumToRemove = maximumToRemove;
+		}
 	}
 }
