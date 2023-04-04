@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics;
+using System.Reflection;
 using DSharpPlus;
-using DSharpPlus.CommandsNext;
-using DSharpPlus.CommandsNext.Exceptions;
 using DSharpPlus.Entities;
 using DSharpPlus.Exceptions;
 using Foxite.Common;
@@ -79,32 +78,26 @@ namespace FridgeBot {
 				await notifications.SendNotificationAsync(errorMessage, exception.Demystify());
 			}
 
-			/*
-			var commands = discord.UseCommandsNext(new CommandsNextConfiguration() {
-				EnableMentionPrefix = true,
-				EnableDefaultHelp = true,
-				EnableDms = false,
-				Services = host.Services,
-			});
-			commands.RegisterCommands<AdminModule>();
-			commands.CommandErrored += async (_, ea) => {
-				switch (ea.Exception) {
-					case CommandNotFoundException:
-						await ea.Context.RespondAsync("Command not found");
-						return;
-					case ChecksFailedException:
-						await ea.Context.RespondAsync("Checks failed 🙁");
-						return;
-					case ArgumentException { Message: "Could not find a suitable overload for the command." }:
-						await ea.Context.RespondAsync("Invalid arguments.");
-						return;
-				}
+			var commands = host.Services.GetRequiredService<CommandService>();
+			commands.AddModules(Assembly.GetExecutingAssembly());
+			commands.AddTypeParser(new DiscordEmojiParser());
+			commands.AddTypeParser(new DiscordChannelParser());
 
-				
-				await HandleHandlerException("OnMessageCreated", ea.Exception, ea.Context.Message);
-				await ea.Context.RespondAsync("Internal error, devs notified.");
+			discord.MessageCreated += async (sender, eventArgs) => {
+				if (eventArgs.Message.Content.StartsWith(discord.CurrentUser.Mention)) {
+					IResult result = await commands.ExecuteAsync(eventArgs.Message.Content.Substring(discord.CurrentUser.Mention.Length), new DSharpPlusCommandContext(eventArgs.Message, host.Services));
+					if (result is not SuccessfulResult) {
+						string? message;
+						if (result is ChecksFailedResult cfr) {
+							message = string.Join("\n", cfr.FailedChecks.Select(tuple => tuple.Result).Where(cr => !cr.IsSuccessful).Select(cr => $"- {cr.FailureReason}"));
+						} else {
+							message = result.ToString();
+						}
+						
+						await eventArgs.Message.RespondAsync(message);
+					}
+				}
 			};
-			*/
 
 			async Task OnReactionModifiedAsync(DiscordMessage message, DiscordEmoji emoji, bool added) {
 				try {
