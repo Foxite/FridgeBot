@@ -2,22 +2,22 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 
-namespace FridgeBot {
-	public class ConnectionStringsConfiguration {
-		public Backend Mode { get; set; }
-		public string FridgeDbContext { get; set; }
+namespace FridgeBot; 
 
-		private readonly Dictionary<Type, Func<string>> m_GetValues = new();
+public class ConnectionStringsConfiguration {
+	public Backend Mode { get; set; }
+	public string FridgeDbContext { get; set; }
 
-		public ConnectionStringsConfiguration() {
-			m_GetValues.Add(typeof(FridgeDbContext), () => FridgeDbContext);
-		}
+	private readonly Dictionary<Type, Func<string>> m_GetValues = new();
 
-		public string GetConnectionString<TDbContext>() where TDbContext : DbContext => m_GetValues[typeof(TDbContext)]();
+	public ConnectionStringsConfiguration() {
+		m_GetValues.Add(typeof(FridgeDbContext), () => FridgeDbContext);
+	}
 
-		public enum Backend {
-			Sqlite,
-			Postgres
-		}
+	public string GetConnectionString<TDbContext>() where TDbContext : DbContext => m_GetValues[typeof(TDbContext)]();
+
+	public enum Backend {
+		Sqlite,
+		Postgres
 	}
 }
