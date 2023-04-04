@@ -13,7 +13,8 @@ jobs:
       uses: elgohr/Publish-Docker-Github-Action@3.04
       with:
         name: fridge-bot
-        context: FridgeBot
+        dockerfile: FridgeBot/Dockerfile
+        context: .
         registry: ${{ secrets.REPO_URL }}
         username: ${{ secrets.REPO_USER }}
         password: ${{ secrets.REPO_PASSWD }}
