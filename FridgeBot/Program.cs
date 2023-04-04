@@ -73,7 +73,7 @@ namespace FridgeBot {
 					   channel {N(message?.Channel?.Id)} ({N(message?.Channel?.Name)})
 					   {(message?.Channel?.Guild != null ? $"guild {N(message?.Channel?.Guild?.Id)} ({N(message?.Channel?.Guild?.Name)})" : "")}";
 				logger.LogCritical(exception, errorMessage);
-				//await notifications.SendNotificationAsync(errorMessage, exception.Demystify());
+				await notifications.SendNotificationAsync(errorMessage, exception.Demystify());
 			}
 
 			var commands = discord.UseCommandsNext(new CommandsNextConfiguration() {
