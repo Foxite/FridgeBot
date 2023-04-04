@@ -8,6 +8,10 @@
         <IsPackable>false</IsPackable>
     </PropertyGroup>
 
+    <PropertyGroup>
+        <RestoreSources>https://nuget.repo.corsac.nl/v3/index.json;https://nuget.emzi0767.com/api/v3/index.json;https://api.nuget.org/v3/index.json</RestoreSources>
+    </PropertyGroup>
+
     <ItemGroup>
         <PackageReference Include="CorporateEspionage.NUnit" Version="0.3.2" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.1.0" />
