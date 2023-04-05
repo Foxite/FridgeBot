@@ -1,8 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Reflection;
-using DSharpPlus;
-using DSharpPlus.Entities;
-using DSharpPlus.Exceptions;
 using Foxite.Common;
 using Foxite.Common.Notifications;
 using FridgeBot;
@@ -12,6 +9,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Qmmands;
+using Revcord;
+using Revcord.Discord;
 
 using IHost host = Host.CreateDefaultBuilder(args)
 	.ConfigureAppConfiguration((hostingContext, configuration) => {
@@ -31,14 +30,14 @@ using IHost host = Host.CreateDefaultBuilder(args)
 		isc.Configure<ConnectionStringsConfiguration>(hbc.Configuration.GetSection("ConnectionStrings"));
 			
 		isc.AddSingleton(isp => {
-			var config = new DiscordConfiguration {
+			var config = new DSharpPlus.DiscordConfiguration {
 				Token = hbc.Configuration.GetSection("Discord").GetValue<string>("Token"),
-				Intents = DiscordIntents.GuildMessages | DiscordIntents.GuildMembers | DiscordIntents.GuildMessageReactions | DiscordIntents.Guilds,
+				Intents = DSharpPlus.DiscordIntents.GuildMessages | DSharpPlus.DiscordIntents.GuildMembers | DSharpPlus.DiscordIntents.GuildMessageReactions | DSharpPlus.DiscordIntents.Guilds,
 				LoggerFactory = isp.GetRequiredService<ILoggerFactory>(),
 				MinimumLogLevel = LogLevel.Information,
 				MessageCacheSize = 0
 			};
-			return new DiscordClient(config);
+			return (ChatClient) new DiscordChatClient(config);
 		});
 
 		isc.AddSingleton<HttpClient>();
@@ -59,16 +58,16 @@ await using (var dbContext = host.Services.GetRequiredService<FridgeDbContext>()
 
 var logger = host.Services.GetRequiredService<ILogger<Program>>();
 var notifications = host.Services.GetRequiredService<NotificationService>();
-var discord = host.Services.GetRequiredService<DiscordClient>();
+var chat = host.Services.GetRequiredService<ChatClient>();
 	
 async Task HandleHandlerException(string name, Exception exception, DiscordMessage? message) {
 	string N(object? o) => o?.ToString() ?? "null";
 	FormattableString errorMessage =
 		@$"Exception in {name}
-			   message: {N(message?.Id)} ({N(message?.JumpLink)}), type: {N(message?.MessageType?.ToString() ?? "(null)")}, webhook: {N(message?.WebhookMessage)}
-			   author: {N(message?.Author?.Id)} ({N(message?.Author?.Username)}#{N(message?.Author?.Discriminator)}), bot: {N(message?.Author?.IsBot)}
+			   message: {N(message?.Id)} ({N(message?.JumpLink)}), type: {N(message?.MessageType?.ToString() ?? "(null)")}
+			   author: {N(message?.Author?.Id)} ({N(message?.Author?.DiscriminatedUsername)}), bot: {N(message?.Author?.IsBot)}
 			   channel {N(message?.Channel?.Id)} ({N(message?.Channel?.Name)})
-			   {(message?.Channel?.Guild != null ? $"guild {N(message?.Channel?.Guild?.Id)} ({N(message?.Channel?.Guild?.Name)})" : "")}";
+			   {(message?.Guild != null ? $"guild {N(message?.Guild?.Id)} ({N(message?.Guild?.Name)})" : "")}";
 	logger.LogCritical(exception, errorMessage);
 	await notifications.SendNotificationAsync(errorMessage, exception.Demystify());
 }
@@ -78,18 +77,18 @@ commands.AddModules(Assembly.GetExecutingAssembly());
 commands.AddTypeParser(new DiscordEmojiParser());
 commands.AddTypeParser(new DiscordChannelParser());
 
-discord.MessageCreated += async (sender, eventArgs) => {
-	if (eventArgs.Message.Content.StartsWith(discord.CurrentUser.Mention)) {
-		IResult result = await commands.ExecuteAsync(eventArgs.Message.Content.Substring(discord.CurrentUser.Mention.Length), new DSharpPlusCommandContext(eventArgs.Message, host.Services));
+chat.MessageCreated += async (sender, message) => {
+	if (message.Content.StartsWith(chat.CurrentUser.Mention)) {
+		IResult result = await commands.ExecuteAsync(message.Content.Substring(chat.CurrentUser.Mention.Length), new DSharpPlusCommandContext(message, host.Services));
 		if (result is not SuccessfulResult) {
-			string? message;
+			string? responseMessage;
 			if (result is ChecksFailedResult cfr) {
-				message = string.Join("\n", cfr.FailedChecks.Select(tuple => tuple.Result).Where(cr => !cr.IsSuccessful).Select(cr => $"- {cr.FailureReason}"));
+				responseMessage = string.Join("\n", cfr.FailedChecks.Select(tuple => tuple.Result).Where(cr => !cr.IsSuccessful).Select(cr => $"- {cr.FailureReason}"));
 			} else {
-				message = result.ToString();
+				responseMessage = result.ToString();
 			}
 				
-			await eventArgs.Message.RespondAsync(message);
+			await message.RespondAsync(responseMessage);
 		}
 	}
 };
