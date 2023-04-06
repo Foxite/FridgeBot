@@ -46,7 +46,7 @@ public class Tests {
 		// The functions don't do anything to actually deliver fridge messages.
 		// However, during a test, I can assert that executing an (async) delegate results in a particular function being called on the mock object, and I can perform assertions on its parameters.
 		m_MockTarget = m_SpyGenerator.CreateSpy<IFridgeTarget>();
-		m_FridgeService = new FridgeService(m_DbContext, m_MockTarget.Object);
+		m_FridgeService = new FridgeService(m_DbContext, m_MockTarget.Object, new FridgeEntryUpdaterProvider());
 	}
 	
 	[OneTimeTearDown]

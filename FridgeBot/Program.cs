@@ -49,6 +49,7 @@ namespace FridgeBot {
 					isc.AddSingleton<HttpClient>();
 					isc.AddScoped<FridgeService>();
 					isc.AddSingleton<IFridgeTarget, DiscordFridgeTarget>();
+					isc.AddSingleton<FridgeEntryUpdaterProvider>();
 					
 					isc.ConfigureDbContext<FridgeDbContext>();
 					

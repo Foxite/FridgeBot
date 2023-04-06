@@ -5,10 +5,12 @@ namespace FridgeBot;
 public class FridgeService {
 	private readonly FridgeDbContext m_DbContext;
 	private readonly IFridgeTarget m_FridgeTarget;
+	private readonly FridgeEntryUpdaterProvider m_EntryUpdaterProvider;
 
-	public FridgeService(FridgeDbContext dbContext, IFridgeTarget fridgeTarget) {
+	public FridgeService(FridgeDbContext dbContext, IFridgeTarget fridgeTarget, FridgeEntryUpdaterProvider entryUpdaterProvider) {
 		m_DbContext = dbContext;
 		m_FridgeTarget = fridgeTarget;
+		m_EntryUpdaterProvider = entryUpdaterProvider;
 	}
 
 	public async Task ProcessReactionAsync(IDiscordMessage message) {
@@ -33,27 +35,14 @@ public class FridgeService {
 					MessageId = message.Id,
 					Emotes = new List<FridgeEntryEmote>()
 				};
+			} else {
+				fridgeEntry.ServerId = fridgeServer.Id;
+				fridgeEntry.Server = fridgeServer;
 			}
 			
 			// Update FridgeEntry
-			foreach (FridgeEntryEmote removeEmote in
-			         from entryEmote in fridgeEntry.Emotes
-			         let reaction = message.Reactions.FirstOrDefault(reaction => reaction.Emoji.ToStringInvariant() == entryEmote.EmoteString)
-			         where reaction == null || reaction.Count < fridgeServer.Emotes.First(serverEmote => serverEmote.EmoteString == entryEmote.EmoteString).MaximumToRemove
-			         let item = fridgeEntry.Emotes.FirstOrDefault(emote => emote.EmoteString == entryEmote.EmoteString)
-			         where item != null
-			         select item) {
-				fridgeEntry.Emotes.Remove(removeEmote);
-			}
-			
-			foreach (FridgeEntryEmote addEmote in
-			         from reaction in message.Reactions
-			         let serverEmote = fridgeServer.Emotes.FirstOrDefault(emote => emote.EmoteString == reaction.Emoji.ToStringInvariant())
-			         where serverEmote != null && reaction.Count >= serverEmote.MinimumToAdd && !fridgeEntry.Emotes.Any(entryEmote => entryEmote.EmoteString == serverEmote.EmoteString)
-			         let entryEmote = new FridgeEntryEmote { EmoteString = reaction.Emoji.ToStringInvariant() }
-			         select entryEmote) {
-				fridgeEntry.Emotes.Add(addEmote);
-			}
+			IFridgeEntryUpdater entryUpdater = m_EntryUpdaterProvider.GetEntryUpdater(fridgeServer);
+			await entryUpdater.UpdateFridgeEntry(fridgeEntry, message);
 
 			// Update fridge message, if necessary
 			if (!(newEntry && fridgeEntry.Emotes.Count == 0)) {
