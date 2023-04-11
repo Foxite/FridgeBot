@@ -11,24 +11,22 @@ public class RevcordFridgeTarget : IFridgeTarget {
 	private readonly ILogger<RevcordFridgeTarget> m_Logger;
 	private readonly NotificationService m_Notifications;
 	private readonly HttpClient m_Http;
-	private readonly ChatClient m_ChatClient;
 
-	public RevcordFridgeTarget(ILogger<RevcordFridgeTarget> logger, NotificationService notifications, HttpClient http, ChatClient chatClient) {
+	public RevcordFridgeTarget(ILogger<RevcordFridgeTarget> logger, NotificationService notifications, HttpClient http) {
 		m_Logger = logger;
 		m_Notifications = notifications;
 		m_Http = http;
-		m_ChatClient = chatClient;
 	}
 		
 	public async Task<EntityId> CreateFridgeMessageAsync(FridgeEntry fridgeEntry, IMessage message) {
 		// TODO find a way to skip intermediate discord api calls and send/update/delete the message directly
-		IChannel fridgeChannel = await m_ChatClient.GetChannelAsync(fridgeEntry.Server.ChannelId);
+		IChannel fridgeChannel = await message.Client.GetChannelAsync(fridgeEntry.Server.ChannelId);
 		IMessage fridgeMessage = await fridgeChannel.SendMessageAsync(GetFridgeMessageBuilder(message, fridgeEntry, null));
 		return fridgeMessage.Id;
 	}
 	
 	public async Task UpdateFridgeMessageAsync(FridgeEntry fridgeEntry, IMessage message) {
-		IChannel fridgeChannel = await m_ChatClient.GetChannelAsync(fridgeEntry.Server.ChannelId);
+		IChannel fridgeChannel = await message.Client.GetChannelAsync(fridgeEntry.Server.ChannelId);
 		try {
 			IMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId);
 			await fridgeMessage.UpdateAsync(GetFridgeMessageBuilder(message, fridgeEntry, fridgeMessage));
@@ -37,8 +35,8 @@ public class RevcordFridgeTarget : IFridgeTarget {
 		}
 	}
 	
-	public async Task DeleteFridgeMessageAsync(FridgeEntry fridgeEntry) {
-		IChannel fridgeChannel = await m_ChatClient.GetChannelAsync(fridgeEntry.Server.ChannelId);
+	public async Task DeleteFridgeMessageAsync(FridgeEntry fridgeEntry, ChatClient client) {
+		IChannel fridgeChannel = await client.GetChannelAsync(fridgeEntry.Server.ChannelId);
 		try {
 			IMessage fridgeMessage = await fridgeChannel.GetMessageAsync(fridgeEntry.FridgeMessageId);
 			await fridgeMessage.DeleteAsync();

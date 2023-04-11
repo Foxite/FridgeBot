@@ -1,0 +1,27 @@
+version: "3.3"
+
+services:
+  database:
+    image: "postgres:13.3"
+    env_file:
+      - postgres.env
+    ports:
+      - "5432:5432"
+    networks:
+      - fridgebot-network
+    volumes:
+      - database-data:/var/lib/postgresql/data/ # persist data even if container shuts down
+  bot:
+    build: FridgeBot
+    env_file:
+      - fridgebot.env
+    depends_on:
+      - database
+    networks:
+      - fridgebot-network
+
+networks:
+  fridgebot-network:
+
+volumes:
+  database-data: # named volumes can be managed easier using docker-compose

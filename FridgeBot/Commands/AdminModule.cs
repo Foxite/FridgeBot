@@ -51,7 +51,8 @@ public class AdminModule : Qmmands.ModuleBase<RevcordCommandContext> {
 		if (fridge == null) {
 			await Context.RespondAsync("You must use init first");
 		} else {
-			var message = $"Fridge channel: <#{fridge.ChannelId}>\nEmotes:";
+			var channel = await Context.Client.GetChannelAsync(fridge.ChannelId);
+			var message = $"Fridge channel: {channel.MentionString}\nEmotes:";
 
 			foreach (ServerEmote emote in fridge.Emotes) {
 				message += $"\n- {emote.EmoteString} to add: {emote.MinimumToAdd}; to remove: {emote.MaximumToRemove}";

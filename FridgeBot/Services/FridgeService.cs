@@ -63,7 +63,7 @@ public class FridgeService {
 			// Update fridge message, if necessary
 			if (!(newEntry && fridgeEntry.Emotes.Count == 0)) {
 				if (fridgeEntry.Emotes.Count == 0) {
-					await m_FridgeTarget.DeleteFridgeMessageAsync(fridgeEntry);
+					await m_FridgeTarget.DeleteFridgeMessageAsync(fridgeEntry, message.Client);
 					m_DbContext.Entries.Remove(fridgeEntry);
 				} else if (newEntry) {
 					fridgeEntry.FridgeMessageId = await m_FridgeTarget.CreateFridgeMessageAsync(fridgeEntry, message);
