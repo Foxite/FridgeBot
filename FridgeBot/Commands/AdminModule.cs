@@ -1,16 +1,16 @@
-using DSharpPlus;
-using DSharpPlus.Entities;
 using Microsoft.EntityFrameworkCore;
 using Qmmands;
+using Revcord.Commands;
+using Revcord.Entities;
 
 namespace FridgeBot; 
 
-[RequireUserPermissions(Permissions.ManageGuild)]
-public class AdminModule : Qmmands.ModuleBase<DSharpPlusCommandContext> {
+//[RequireUserPermissions(DSharpPlus.Permissions.ManageGuild)]
+public class AdminModule : Qmmands.ModuleBase<RevcordCommandContext> {
 	public FridgeDbContext DbContext { get; set; } = null!;
 
 	[Command("init")]
-	public async Task Init(DiscordChannel fridgeChannel) {
+	public async Task Init(IChannel fridgeChannel) {
 		ServerFridge? fridge = await DbContext.Servers.FindAsync(Context.Guild!.Id);
 		if (fridge == null) {
 			DbContext.Servers.Add(new ServerFridge() {
@@ -25,15 +25,15 @@ public class AdminModule : Qmmands.ModuleBase<DSharpPlusCommandContext> {
 	}
 
 	[Command("emote")]
-	public async Task UpdateEmote(DiscordEmoji emoji, int minimumToAdd, int maximumToRemove) {
+	public async Task UpdateEmote(IEmoji emoji, int minimumToAdd, int maximumToRemove) {
 		ServerFridge? fridge = await DbContext.Servers.FindAsync(Context.Guild!.Id);
 		if (fridge == null) {
 			await Context.RespondAsync("You must use init first");
 		} else {
-			ServerEmote? emote = await DbContext.Emotes.FindAsync(Context.Guild.Id, emoji.ToStringInvariant());
+			ServerEmote? emote = await DbContext.Emotes.FindAsync(Context.Guild.Id, emoji.ToString());
 			if (emote == null) {
 				emote = new ServerEmote() {
-					EmoteString = emoji.ToStringInvariant(),
+					EmoteString = emoji.ToString(),
 					Server = fridge
 				};
 				DbContext.Emotes.Add(emote);
@@ -62,12 +62,12 @@ public class AdminModule : Qmmands.ModuleBase<DSharpPlusCommandContext> {
 	}
 
 	[Command("delete")]
-	public async Task DeleteEmote(DiscordEmoji emoji) {
+	public async Task DeleteEmote(IEmoji emoji) {
 		ServerFridge? fridge = await DbContext.Servers.FindAsync(Context.Guild!.Id);
 		if (fridge == null) {
 			await Context.RespondAsync("You must use init first");
 		} else {
-			ServerEmote? emote = await DbContext.Emotes.FindAsync(Context.Guild.Id, emoji.ToStringInvariant());
+			ServerEmote? emote = await DbContext.Emotes.FindAsync(Context.Guild.Id, emoji.ToString());
 			if (emote == null) {
 				await Context.RespondAsync("Not found");
 			} else {

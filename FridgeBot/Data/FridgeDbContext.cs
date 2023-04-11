@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Revcord.EntityFramework;
 
 namespace FridgeBot; 
 
@@ -20,6 +21,13 @@ public class FridgeDbContext : DbContext {
 
 	protected override void OnModelCreating(ModelBuilder modelBuilder) {
 		base.OnModelCreating(modelBuilder);
-		modelBuilder.Entity<ServerEmote>().HasKey(nameof(ServerEmote.ServerId), nameof(ServerEmote.EmoteString));
+		modelBuilder
+			.Entity<ServerEmote>()
+			.HasKey(nameof(ServerEmote.ServerId), nameof(ServerEmote.EmoteString));
+
+		modelBuilder.ConfigureEntityIdConversions<FridgeEntry>(fe => fe.ServerId, fe => fe.ChannelId, fe => fe.MessageId, fe => fe.FridgeMessageId);
+		modelBuilder.ConfigureEntityIdConversions<ServerFridge>(sf => sf.Id, sf => sf.ChannelId);
+		modelBuilder.ConfigureEntityIdConversions<ServerEmote>(se => se.ServerId);
+		//modelBuilder.ConfigureEntityIdConversions<FridgeEntryEmote>(fee => fee.);
 	}
 }

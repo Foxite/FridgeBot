@@ -1,4 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <RevcordSource>Development</RevcordSource>
+    </PropertyGroup>
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
@@ -7,7 +10,7 @@
         <Nullable>enable</Nullable>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     </PropertyGroup>
-
+    
     <PropertyGroup>
         <RestoreSources>https://nuget.repo.corsac.nl/v3/index.json;https://nuget.emzi0767.com/api/v3/index.json;https://api.nuget.org/v3/index.json</RestoreSources>
     </PropertyGroup>
@@ -17,24 +20,33 @@
       <PackageReference Include="codeessentials.Extensions.Logging.Demystifier" Version="1.1.66" />
       <!--<PackageReference Include="codeessentials.Extensions.Logging.Demystifier" Version="1.0.58" />-->
       <PackageReference Include="Foxite.Common" Version="1.9.0" />
-      <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="6.0.6" />
-      <PackageReference Include="Microsoft.Extensions.Configuration" Version="6.0.1" />
-      <PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.11" />
-      <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="6.0.0" />
-      <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="6.0.1" />
-      <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="6.0.0" />
-      <PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.1" />
-      <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="6.0.0" />
-      <PackageReference Include="Microsoft.Extensions.Logging" Version="6.0.0" />
-      <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="6.0.0" />
-      <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="6.0.0" />
-      <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="6.0.5" />
-      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.6">
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="7.0.5" />
+      <PackageReference Include="Microsoft.Extensions.Configuration" Version="7.0.0" />
+      <PackageReference Include="Microsoft.EntityFrameworkCore" Version="7.0.5" />
+      <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="7.0.0" />
+      <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="7.0.0" />
+      <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="7.0.0" />
+      <PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.1" />
+      <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="7.0.0" />
+      <PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0" />
+      <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="7.0.0" />
+      <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="7.0.0" />
+      <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="7.0.3" />
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="7.0.5">
         <PrivateAssets>all</PrivateAssets>
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       </PackageReference>
       <PackageReference Include="Qmmands" Version="5.0.2" />
-      <PackageReference Include="Revcord" Version="0.1.1" />
+    </ItemGroup>
+    
+    <ItemGroup Condition=" '$(RevcordSource)' == 'Production' ">
+        <PackageReference Include="Revcord.Commands" Version="0.3.0" />
+        <PackageReference Include="Revcord.EntityFramework" Version="0.3.0" />
+    </ItemGroup>
+
+    <ItemGroup Condition=" '$(RevcordSource)' == 'Development' ">
+        <ProjectReference Include="..\..\Revcord\Revcord.Commands\Revcord.Commands.csproj" />
+        <ProjectReference Include="..\..\Revcord\Revcord.EntityFramework\Revcord.EntityFramework.csproj" />
     </ItemGroup>
 
     <ItemGroup>

@@ -1,7 +1,8 @@
 using CorporateEspionage;
 using CorporateEspionage.NUnit;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Revcord;
+using Revcord.Entities;
 
 namespace FridgeBot.Tests;
 
@@ -33,7 +34,7 @@ public class Tests {
 		await m_DbContext.Database.OpenConnectionAsync(); // must be done for some reason
 		await m_DbContext.Database.EnsureCreatedAsync();
 
-		m_ServerFridge = new ServerFridge(123, 2, new DateTimeOffset(2023, 02, 22, 12, 00, 00, TimeSpan.Zero))
+		m_ServerFridge = new ServerFridge(EntityId.Of(123), EntityId.Of(2), new DateTimeOffset(2023, 02, 22, 12, 00, 00, TimeSpan.Zero))
 			.AddEmote(new ServerEmote("hi!", 2, 0))
 			.AddEmote(new ServerEmote("hey!", 2, 1))
 			.AddEmote(new ServerEmote("hello!", 1, 1));
@@ -56,7 +57,7 @@ public class Tests {
 
 	[Test]
 	public async Task NotInGuild() {
-		var mockMessage = new MockDiscordMessage(guildId: null, reactions: new MockDiscordReaction(new MockDiscordEmoji("hello!"), 2));
+		var mockMessage = new MockMessage(false, null, 456, 789, DateTimeOffset.MaxValue, reactions: new MockReaction(new MockEmoji("hello!"), 2));
 		await m_FridgeService.ProcessReactionAsync(mockMessage);
 
 		Assert.Multiple(() => {
@@ -66,7 +67,7 @@ public class Tests {
 
 	[Test]
 	public async Task AuthorIsCurrent() {
-		var mockMessage = new MockDiscordMessage(true, 123, reactions: new MockDiscordReaction(new MockDiscordEmoji("hello!"), 2));
+		var mockMessage = new MockMessage(true, 123, 456, 789, DateTimeOffset.MaxValue, reactions: new MockReaction(new MockEmoji("hello!"), 2));
 		await m_FridgeService.ProcessReactionAsync(mockMessage);
 
 		Assert.Multiple(() => {
@@ -76,7 +77,7 @@ public class Tests {
 
 	[Test]
 	public async Task SufficientReactionsOnOldPost() {
-		var mockMessage = new MockDiscordMessage(true, 123, 456, 789, new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero), reactions: new MockDiscordReaction(new MockDiscordEmoji("hello!"), 2));
+		var mockMessage = new MockMessage(false, 123, 456, 789, new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero), reactions: new MockReaction(new MockEmoji("hello!"), 2));
 		await m_FridgeService.ProcessReactionAsync(mockMessage);
 
 		Assert.Multiple(() => {
@@ -86,7 +87,7 @@ public class Tests {
 
 	[Test]
 	public async Task UnrelatedReactionsOnNewEntry() {
-		var mockMessage = new MockDiscordMessage(false, 123, 456, 789, new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero), reactions: new MockDiscordReaction(new MockDiscordEmoji("eyoo!"), 2));
+		var mockMessage = new MockMessage(false, 123, 456, 789, new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero), reactions: new MockReaction(new MockEmoji("eyoo!"), 2));
 		await m_FridgeService.ProcessReactionAsync(mockMessage);
 
 		Assert.Multiple(() => {
@@ -96,7 +97,7 @@ public class Tests {
 
 	[Test]
 	public async Task InsufficientReactionNewEntry() {
-		var mockMessage = new MockDiscordMessage(false, 123, 456, 789, new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero), reactions: new MockDiscordReaction(new MockDiscordEmoji("hey!"), 1));
+		var mockMessage = new MockMessage(false, 123, 456, 789, new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero), reactions: new MockReaction(new MockEmoji("hey!"), 1));
 		await m_FridgeService.ProcessReactionAsync(mockMessage);
 
 		Assert.Multiple(() => {
@@ -106,7 +107,10 @@ public class Tests {
 
 	[Test]
 	public async Task SufficientReactionToNewEntry() {
-		var mockMessage = new MockDiscordMessage(false, m_ServerFridge.Id, 456, 789, new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero), reactions: new MockDiscordReaction(new MockDiscordEmoji("hello!"), 2));
+		// TODO need to add return value configuration to CorporateEspionage for this test case to work
+		// Previously, it returned the default ulong which is fine for EntityFramework
+		// Now it returns a default EntityId which is not fine as UnderlyingId is null
+		var mockMessage = new MockMessage(false, m_ServerFridge.Id, EntityId.Of(456), EntityId.Of(789), new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero), reactions: new MockReaction(new MockEmoji("hello!"), 2));
 		await m_FridgeService.ProcessReactionAsync(mockMessage);
 
 		Assert.Multiple(() => {
@@ -124,9 +128,9 @@ public class Tests {
 
 	[Test]
 	public async Task SufficientReactionToExistingEntry() {
-		var mockMessage = new MockDiscordMessage(false, 123, 456, 789, new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero), reactions: new MockDiscordReaction(new MockDiscordEmoji("hello!"), 3));
+		var mockMessage = new MockMessage(false, 123, 456, 789, new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero), reactions: new MockReaction(new MockEmoji("hello!"), 3));
 
-		const ulong fridgeMessageId = 234;
+		EntityId fridgeMessageId = EntityId.Of(234);
 		{
 			var fridgeEntry = new FridgeEntry() {
 				ChannelId = mockMessage.ChannelId,
@@ -135,7 +139,7 @@ public class Tests {
 				ServerId = m_ServerFridge.Id,
 				Emotes = new HashSet<FridgeEntryEmote>() {
 					new FridgeEntryEmote() {
-						EmoteString = new MockDiscordEmoji("hello!").ToStringInvariant()
+						EmoteString = new MockEmoji("hello!").ToString()
 					}
 				}
 			};
@@ -161,9 +165,9 @@ public class Tests {
 
 	[Test]
 	public async Task InsufficientReactionsToExistingEntry() {
-		var mockMessage = new MockDiscordMessage(false, 123, 456, 789, new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero));
+		var mockMessage = new MockMessage(false, 123, 456, 789, new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero));
 
-		const ulong fridgeMessageId = 234;
+		EntityId fridgeMessageId = EntityId.Of(234);
 		{
 			var fridgeEntry = new FridgeEntry() {
 				ChannelId = mockMessage.ChannelId,
@@ -172,7 +176,7 @@ public class Tests {
 				ServerId = m_ServerFridge.Id,
 				Emotes = new HashSet<FridgeEntryEmote>() {
 					new FridgeEntryEmote() {
-						EmoteString = new MockDiscordEmoji("hello!").ToStringInvariant()
+						EmoteString = new MockEmoji("hello!").ToString()
 					}
 				}
 			};
@@ -194,5 +198,87 @@ public class Tests {
 			);
 			Assert.That(m_MockTarget, Was.NoOtherCalls());
 		});
+	}
+}
+
+public class MockMessage : IMessage {
+	private readonly bool m_IsSelf;
+	
+	public IUser Author => new MockUser(m_IsSelf);
+	public EntityId Id { get; }
+	public EntityId? GuildId { get; }
+	public EntityId ChannelId { get; }
+	public IReadOnlyCollection<IReaction> Reactions { get; }
+	public DateTimeOffset CreationTimestamp { get; }
+
+	public string? Content => throw new NotImplementedException();
+	public IGuild? Guild => throw new NotImplementedException();
+	public IGuildMember? AuthorMember => throw new NotImplementedException();
+	public IChannel Channel => throw new NotImplementedException();
+	public string JumpLink => throw new NotImplementedException();
+	
+	public EntityId AuthorId => throw new NotImplementedException();
+	public bool IsSystemMessage => throw new NotImplementedException();
+	public ChatClient Client => throw new NotImplementedException();
+
+	public MockMessage(bool isSelf, int? guildId, int channelId, int id, DateTimeOffset creationTimestamp, params IReaction[] reactions)
+		: this(isSelf, guildId.HasValue ? EntityId.Of(guildId.Value) : null, EntityId.Of(channelId), EntityId.Of(id), creationTimestamp, reactions) { }
+
+	public MockMessage(bool isSelf, EntityId? guildId, EntityId channelId, EntityId id, DateTimeOffset creationTimestamp, params IReaction[] reactions) {
+		GuildId = guildId;
+		ChannelId = channelId;
+		Id = id;
+		CreationTimestamp = creationTimestamp;
+		Reactions = reactions;
+		m_IsSelf = isSelf;
+	}
+}
+
+public class MockUser : IUser {
+	public bool IsSelf { get; }
+
+	public ChatClient Client => throw new NotImplementedException();
+	public EntityId Id => throw new NotImplementedException();
+	public string DisplayName => throw new NotImplementedException();
+	public string Username => throw new NotImplementedException();
+	public string DiscriminatedUsername => throw new NotImplementedException();
+	public string MentionString => throw new NotImplementedException();
+	public string AvatarUrl => throw new NotImplementedException();
+	public bool IsBot => throw new NotImplementedException();
+
+	public MockUser(bool isSelf) {
+		IsSelf = isSelf;
+	}
+}
+
+public class MockReaction : IReaction {
+	public ChatClient Client => throw new NotImplementedException();
+	public IEmoji Emoji { get; }
+	public int Count { get; }
+
+	public MockReaction(MockEmoji emoji, int count) {
+		Emoji = emoji;
+		Count = count;
+	}
+}
+
+public class MockEmoji : IEmoji {
+	public string Name { get; }
+	
+	public ChatClient Client => throw new NotImplementedException();
+	public EntityId Id => throw new NotImplementedException();
+	public bool IsAnimated => throw new NotImplementedException();
+	public bool IsCustomizedEmote => throw new NotImplementedException();
+
+	public MockEmoji(string name) {
+		Name = name;
+	}
+
+	public bool Equals(IEmoji? other) {
+		return other is MockEmoji me && me.Name == Name;
+	}
+
+	public override string ToString() {
+		return Name;
 	}
 }

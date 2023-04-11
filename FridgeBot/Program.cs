@@ -10,6 +10,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Qmmands;
 using Revcord;
+using Revcord.Commands;
 using Revcord.Discord;
 
 using IHost host = Host.CreateDefaultBuilder(args)
@@ -42,7 +43,7 @@ using IHost host = Host.CreateDefaultBuilder(args)
 
 		isc.AddSingleton<HttpClient>();
 		isc.AddScoped<FridgeService>();
-		isc.AddSingleton<IFridgeTarget, DiscordFridgeTarget>();
+		isc.AddSingleton<IFridgeTarget, RevcordFridgeTarget>();
 			
 		isc.ConfigureDbContext<FridgeDbContext>();
 			
@@ -64,22 +65,21 @@ async Task HandleHandlerException(string name, Exception exception, DiscordMessa
 	string N(object? o) => o?.ToString() ?? "null";
 	FormattableString errorMessage =
 		@$"Exception in {name}
-			   message: {N(message?.Id)} ({N(message?.JumpLink)}), type: {N(message?.MessageType?.ToString() ?? "(null)")}
+			   message: {N(message?.Id)} ({N(message?.JumpLink)}), is system: {N(message?.IsSystemMessage.ToString() ?? "(null)")}
 			   author: {N(message?.Author?.Id)} ({N(message?.Author?.DiscriminatedUsername)}), bot: {N(message?.Author?.IsBot)}
 			   channel {N(message?.Channel?.Id)} ({N(message?.Channel?.Name)})
 			   {(message?.Guild != null ? $"guild {N(message?.Guild?.Id)} ({N(message?.Guild?.Name)})" : "")}";
+	
 	logger.LogCritical(exception, errorMessage);
 	await notifications.SendNotificationAsync(errorMessage, exception.Demystify());
 }
 
 var commands = host.Services.GetRequiredService<CommandService>();
 commands.AddModules(Assembly.GetExecutingAssembly());
-commands.AddTypeParser(new DiscordEmojiParser());
-commands.AddTypeParser(new DiscordChannelParser());
 
-chat.MessageCreated += async (sender, message) => {
-	if (message.Content.StartsWith(chat.CurrentUser.Mention)) {
-		IResult result = await commands.ExecuteAsync(message.Content.Substring(chat.CurrentUser.Mention.Length), new DSharpPlusCommandContext(message, host.Services));
+chat.MessageCreated += async (args) => {
+	if (args.Message.Content != null && args.Message.Content.StartsWith(chat.CurrentUser.MentionString)) {
+		IResult result = await commands.ExecuteAsync(args.Message.Content[chat.CurrentUser.MentionString.Length..], new RevcordCommandContext(args.Message, host.Services));
 		if (result is not SuccessfulResult) {
 			string? responseMessage;
 			if (result is ChecksFailedResult cfr) {
@@ -87,45 +87,42 @@ chat.MessageCreated += async (sender, message) => {
 			} else {
 				responseMessage = result.ToString();
 			}
-				
-			await message.RespondAsync(responseMessage);
+
+			if (responseMessage != null) {
+				await args.Message.SendReplyAsync(responseMessage);
+			}
 		}
 	}
 };
 
-async Task OnReactionModifiedAsync(DiscordMessage message, DiscordEmoji emoji, bool added) {
+async Task OnReactionModifiedAsync(ReactionModifiedArgs args) {
+	var message = args.Message;
+	// Acquire additional data such as the author, and refresh reaction counts
 	try {
-		// Acquire additional data such as the author, and refresh reaction counts
-		try {
-			message = await message.Channel.GetMessageAsync(message.Id);
-		} catch (NotFoundException) {
-			// Message was deleted since the event fired
-			return;
-		}
-		if (message == null) {
-			// Also deleted? idk. better safe than sorry
-			return;
-		}
-
-		await using var scope = host.Services.CreateAsyncScope();
-		var fridgeService = scope.ServiceProvider.GetRequiredService<FridgeService>();
-		await fridgeService.ProcessReactionAsync(new RealDiscordMessage(message));
-	} catch (Exception ex) {
-		await HandleHandlerException("OnReactionModifiedAsync", ex, message);
+		message = await message.Channel.GetMessageAsync(message.Id);
+	} catch (EntityNotFoundException) {
+		// Message was deleted since the event fired
+		return;
 	}
+	if (message == null) {
+		// Also deleted? idk. better safe than sorry
+		return;
+	}
+
+	await using var scope = host.Services.CreateAsyncScope();
+	var fridgeService = scope.ServiceProvider.GetRequiredService<FridgeService>();
+	await fridgeService.ProcessReactionAsync(message);
 }
 
-discord.MessageReactionAdded += (sender, ea) => {
-	_ = OnReactionModifiedAsync(ea.Message, ea.Emoji, true);
-	return Task.CompletedTask;
-};
-discord.MessageReactionRemoved += (sender, ea) => {
-	_ = OnReactionModifiedAsync(ea.Message, ea.Emoji, false);
-	return Task.CompletedTask;
-};
+chat.ReactionAdded += OnReactionModifiedAsync;
+chat.ReactionRemoved += OnReactionModifiedAsync;
 
-discord.ClientErrored += (_, eventArgs) => notifications.SendNotificationAsync($"Exception in {eventArgs.EventName}", eventArgs.Exception);
+chat.EventHandlerError += (eventArgs) => notifications.SendNotificationAsync($"Exception in {eventArgs.EventName}", eventArgs.Exception);
+chat.ClientError += eventArgs => {
+	logger.LogError(eventArgs.Exception, "Client error");
+	return Task.CompletedTask;
+};
 	
-await discord.ConnectAsync();
+await chat.StartAsync();
 
 await host.RunAsync();

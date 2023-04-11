@@ -1,13 +1,13 @@
-using DSharpPlus.Entities;
+using Revcord.Entities;
 
 namespace FridgeBot;
 
 public interface IFridgeTarget {
 	/// <returns>The message ID</returns>
-	Task<ulong> CreateFridgeMessageAsync(FridgeEntry fridgeEntry, IDiscordMessage message);
+	Task<EntityId> CreateFridgeMessageAsync(FridgeEntry fridgeEntry, IMessage message);
 	
 	/// <exception cref="FileNotFoundException">If the fridge message has been removed externally</exception>
-	Task UpdateFridgeMessageAsync(FridgeEntry fridgeEntry, IDiscordMessage message);
+	Task UpdateFridgeMessageAsync(FridgeEntry fridgeEntry, IMessage message);
 	
 	Task DeleteFridgeMessageAsync(FridgeEntry fridgeEntry);
 }

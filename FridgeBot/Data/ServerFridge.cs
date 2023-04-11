@@ -1,15 +1,19 @@
 using System.ComponentModel.DataAnnotations;
+using Revcord.Entities;
 
 namespace FridgeBot; 
 
 public class ServerFridge {
+	/// <summary>
+	/// Id of the server.
+	/// </summary>
 	[Key]
-	public ulong Id { get; set; }
+	public EntityId Id { get; set; }
 		
 	/// <summary>
 	/// Id of the channel to send fridged messages.
 	/// </summary>
-	public ulong ChannelId { get; set; }
+	public EntityId ChannelId { get; set; }
 		
 	public DateTimeOffset InitializedAt { get; set; } = DateTimeOffset.MinValue;
 		
@@ -18,7 +22,7 @@ public class ServerFridge {
 		
 	public ServerFridge() {}
 
-	public ServerFridge(ulong id, ulong channelId, DateTimeOffset initializedAt) {
+	public ServerFridge(EntityId id, EntityId channelId, DateTimeOffset initializedAt) {
 		Id = id;
 		ChannelId = channelId;
 		InitializedAt = initializedAt;

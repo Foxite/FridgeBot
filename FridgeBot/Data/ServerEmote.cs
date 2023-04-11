@@ -1,10 +1,10 @@
-using System.ComponentModel.DataAnnotations;
+using Revcord.Entities;
 
 namespace FridgeBot; 
 
 public class ServerEmote {
 	//[Key] // Composite key specified in dbcontext model builder
-	public ulong ServerId { get; set; }
+	public EntityId ServerId { get; set; }
 	// For guild emotes, this is the string in the form of <:name:0123456789:> or <a:name:0123456789:>.
 	// For emojis this is the unicode for the emoji.
 	//[Key]
