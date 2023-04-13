@@ -45,6 +45,7 @@
     </ItemGroup>
 
     <ItemGroup Condition=" '$(RevcordSource)' == 'Development' ">
+        <ProjectReference Include="..\..\Revcord\Revcord\Revcord.csproj" />
         <ProjectReference Include="..\..\Revcord\Revcord.Commands\Revcord.Commands.csproj" />
         <ProjectReference Include="..\..\Revcord\Revcord.EntityFramework\Revcord.EntityFramework.csproj" />
     </ItemGroup>

@@ -5,11 +5,11 @@ namespace FridgeBot;
 
 public class FridgeService {
 	private readonly FridgeDbContext m_DbContext;
-	private readonly IFridgeTarget m_FridgeTarget;
+	private readonly IEnumerable<IFridgeTarget> m_FridgeTargets;
 
-	public FridgeService(FridgeDbContext dbContext, IFridgeTarget fridgeTarget) {
+	public FridgeService(FridgeDbContext dbContext, IEnumerable<IFridgeTarget> fridgeTargets) {
 		m_DbContext = dbContext;
-		m_FridgeTarget = fridgeTarget;
+		m_FridgeTargets = fridgeTargets;
 	}
 
 	public async Task ProcessReactionAsync(IMessage message) {
@@ -18,6 +18,12 @@ public class FridgeService {
 		}
 		
 		if (message.AuthorIsSelf) {
+			return;
+		}
+
+		IFridgeTarget? target = m_FridgeTargets.FirstOrDefault(target => target.Supports(message.Client));
+
+		if (target == null) {
 			return;
 		}
 
@@ -63,14 +69,14 @@ public class FridgeService {
 			// Update fridge message, if necessary
 			if (!(newEntry && fridgeEntry.Emotes.Count == 0)) {
 				if (fridgeEntry.Emotes.Count == 0) {
-					await m_FridgeTarget.DeleteFridgeMessageAsync(fridgeEntry, message.Client);
+					await target.DeleteFridgeMessageAsync(fridgeEntry, message.Client);
 					m_DbContext.Entries.Remove(fridgeEntry);
 				} else if (newEntry) {
-					fridgeEntry.FridgeMessageId = await m_FridgeTarget.CreateFridgeMessageAsync(fridgeEntry, message);
+					fridgeEntry.FridgeMessageId = await target.CreateFridgeMessageAsync(fridgeEntry, message);
 					m_DbContext.Entries.Add(fridgeEntry);
 				} else {
 					try {
-						await m_FridgeTarget.UpdateFridgeMessageAsync(fridgeEntry, message);
+						await target.UpdateFridgeMessageAsync(fridgeEntry, message);
 					} catch (FileNotFoundException) {
 						m_DbContext.Entries.Remove(fridgeEntry);
 					}

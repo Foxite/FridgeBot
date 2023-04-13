@@ -3,9 +3,9 @@ using System.Reflection;
 using Foxite.Common;
 using Foxite.Common.Notifications;
 using FridgeBot;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -33,13 +33,25 @@ using IHost host = Host.CreateDefaultBuilder(args)
 		isc.Configure<ConnectionStringsConfiguration>(hbc.Configuration.GetSection("ConnectionStrings"));
 		isc.Configure<DiscordConfig>(hbc.Configuration.GetSection("Discord"));
 		isc.Configure<RevoltConfig>(hbc.Configuration.GetSection("Revolt"));
+		
+		isc.TryAddEnumerable(ServiceDescriptor.Singleton<ChatClient>(isp => new DiscordChatClient(new DSharpPlus.DiscordConfiguration {
+			Token = isp.GetRequiredService<IOptions<DiscordConfig>>().Value.Token,
+			Intents = DSharpPlus.DiscordIntents.GuildMessages | DSharpPlus.DiscordIntents.GuildMembers | DSharpPlus.DiscordIntents.GuildMessageReactions | DSharpPlus.DiscordIntents.Guilds,
+			LoggerFactory = isp.GetRequiredService<ILoggerFactory>(),
+			MinimumLogLevel = LogLevel.Information,
+			MessageCacheSize = 0
+		})));
+
+		isc.TryAddEnumerable(ServiceDescriptor.Singleton<ChatClient>(isp => new RevoltChatClient(isp.GetRequiredService<IOptions<RevoltConfig>>().Value.Token)));
+
 			
 		isc.AddSingleton<ChatClientService>();
 
 		isc.AddSingleton<HttpClient>();
-		isc.AddSingleton<IFridgeTarget, RevcordFridgeTarget>();
+		isc.TryAddEnumerable(ServiceDescriptor.Transient<IFridgeTarget, RevoltFridgeTarget>());
+		isc.TryAddEnumerable(ServiceDescriptor.Transient<IFridgeTarget, DiscordFridgeTarget>());
 		isc.AddScoped<FridgeService>();
-			
+		
 		isc.ConfigureDbContext<FridgeDbContext>();
 			
 		isc.AddNotifications().AddDiscord(hbc.Configuration.GetSection("DiscordNotifications"));
@@ -58,29 +70,19 @@ var logger = host.Services.GetRequiredService<ILogger<Program>>();
 var notifications = host.Services.GetRequiredService<NotificationService>();
 var chat = host.Services.GetRequiredService<ChatClientService>();
 
-var config = new DSharpPlus.DiscordConfiguration {
-	Token = host.Services.GetRequiredService<IOptions<DiscordConfig>>().Value.Token,
-	Intents = DSharpPlus.DiscordIntents.GuildMessages | DSharpPlus.DiscordIntents.GuildMembers | DSharpPlus.DiscordIntents.GuildMessageReactions | DSharpPlus.DiscordIntents.Guilds,
-	LoggerFactory = host.Services.GetRequiredService<ILoggerFactory>(),
-	MinimumLogLevel = LogLevel.Information,
-	MessageCacheSize = 0
-};
-
-chat.AddClient(new DiscordChatClient(config));
-
-chat.AddClient(new RevoltChatClient(host.Services.GetRequiredService<IOptions<RevoltConfig>>().Value.Token));
-	
-async Task HandleHandlerException(string name, Exception exception, DiscordMessage? message) {
+async Task HandleHandlerException(HandlerErrorArgs args) {
 	string N(object? o) => o?.ToString() ?? "null";
 	FormattableString errorMessage =
-		@$"Exception in {name}
+		@$"Exception in {args.EventName}";
+	/*
 			   message: {N(message?.Id)} ({N(message?.JumpLink)}), is system: {N(message?.IsSystemMessage.ToString() ?? "(null)")}
 			   author: {N(message?.Author?.Id)} ({N(message?.Author?.DiscriminatedUsername)}), bot: {N(message?.Author?.IsBot)}
 			   channel {N(message?.Channel?.Id)} ({N(message?.Channel?.Name)})
-			   {(message?.Guild != null ? $"guild {N(message?.Guild?.Id)} ({N(message?.Guild?.Name)})" : "")}";
+			   {(message?.Guild != null ? $"guild {N(message?.Guild?.Id)} ({N(message?.Guild?.Name)})" : "")}
+	*/
 	
-	logger.LogCritical(exception, errorMessage);
-	await notifications.SendNotificationAsync(errorMessage, exception.Demystify());
+	logger.LogCritical(args.Exception, errorMessage);
+	await notifications.SendNotificationAsync(errorMessage, args.Exception.Demystify());
 }
 
 var commands = host.Services.GetRequiredService<CommandService>();
@@ -121,11 +123,8 @@ async Task OnReactionModifiedAsync(ReactionModifiedArgs args) {
 chat.ReactionAdded += OnReactionModifiedAsync;
 chat.ReactionRemoved += OnReactionModifiedAsync;
 
-chat.EventHandlerError += eventArgs => {
-	logger.LogCritical(eventArgs.Exception, "Exception in {EventName}", eventArgs.EventName);
-	//notifications.SendNotificationAsync($"Exception in {eventArgs.EventName}", eventArgs.Exception);
-	return Task.CompletedTask;
-};
+chat.EventHandlerError += HandleHandlerException;
+
 chat.ClientError += eventArgs => {
 	logger.LogError(eventArgs.Exception, "Client error");
 	return Task.CompletedTask;

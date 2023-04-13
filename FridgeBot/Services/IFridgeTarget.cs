@@ -11,4 +11,6 @@ public interface IFridgeTarget {
 	Task UpdateFridgeMessageAsync(FridgeEntry fridgeEntry, IMessage message);
 	
 	Task DeleteFridgeMessageAsync(FridgeEntry fridgeEntry, ChatClient client);
+	
+	bool Supports(ChatClient client);
 }
