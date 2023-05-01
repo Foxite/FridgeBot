@@ -31,19 +31,13 @@ public abstract class BaseFridgeTarget : IFridgeTarget {
 	}
 	
 	public async Task UpdateFridgeMessageAsync(FridgeEntry fridgeEntry, IMessage message) {
-		try {
-			IMessage fridgeMessage = await message.Client.GetMessageAsync(fridgeEntry.Server.ChannelId, fridgeEntry.FridgeMessageId);
-			await ExecuteUpdateAsync(fridgeEntry, message, fridgeMessage);
-		} catch (EntityNotFoundException ex) {
-			throw new FileNotFoundException("The fridge message has been deleted externally", ex);
-		}
+		IMessage fridgeMessage = await message.Client.GetMessageAsync(fridgeEntry.Server.ChannelId, fridgeEntry.FridgeMessageId);
+		await ExecuteUpdateAsync(fridgeEntry, message, fridgeMessage);
 	}
 	
 	public async Task DeleteFridgeMessageAsync(FridgeEntry fridgeEntry, ChatClient client) {
-		try {
-			IMessage fridgeMessage = await client.GetMessageAsync(fridgeEntry.Server.ChannelId, fridgeEntry.FridgeMessageId);
-			await fridgeMessage.DeleteAsync();
-		} catch (EntityNotFoundException) { }
+		IMessage fridgeMessage = await client.GetMessageAsync(fridgeEntry.Server.ChannelId, fridgeEntry.FridgeMessageId);
+		await fridgeMessage.DeleteAsync();
 	}
 
 	protected abstract Task<EntityId> ExecuteCreateAsync(FridgeEntry entry, IMessage message);

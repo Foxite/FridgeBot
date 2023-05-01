@@ -30,15 +30,17 @@ public class DiscordFridgeTarget : BaseFridgeTarget {
 	public override bool Supports(ChatClient client) => client is DiscordChatClient;
 
 	protected async override Task<EntityId> ExecuteCreateAsync(FridgeEntry entry, IMessage rvMessage) {
-		var discord = ((DiscordChatClient) rvMessage.Client);
+		var discord = (DiscordChatClient) rvMessage.Client;
 		SharpMessage message = ((RevMessage) rvMessage).Entity;
-		SharpMessage? fridgeMessage = await discord.DSharp.SendMessageAsync(message.Channel, GetFridgeMessageBuilder(entry, message, null, discord));
+		SharpChannel? fridgeChannel = await discord.DSharp.GetChannelAsync((ulong) entry.Server.ChannelId.UnderlyingId);
+		SharpMessage? fridgeMessage = await fridgeChannel.SendMessageAsync(GetFridgeMessageBuilder(entry, message, null, discord));
 		return EntityId.Of(fridgeMessage.Id);
 	}
 
 	protected override Task ExecuteUpdateAsync(FridgeEntry entry, IMessage message, IMessage existingFridgeMessage) {
-		SharpMessage sharpMessage = ((RevMessage) existingFridgeMessage).Entity;
-		return sharpMessage.ModifyAsync(GetFridgeMessageBuilder(entry, sharpMessage, ((RevMessage) existingFridgeMessage).Entity, ((DiscordChatClient) message.Client)));
+		SharpMessage sharpMessage = ((RevMessage) message).Entity;
+		SharpMessage existingFridgeSharpMessage = ((RevMessage) existingFridgeMessage).Entity; 
+		return existingFridgeSharpMessage.ModifyAsync(GetFridgeMessageBuilder(entry, sharpMessage, existingFridgeSharpMessage, (DiscordChatClient) message.Client));
 	}
 	
 	private Action<DiscordMessageBuilder> GetFridgeMessageBuilder(FridgeEntry fridgeEntry, SharpMessage message, SharpMessage? existingFridgeMessage, DiscordChatClient discord) {

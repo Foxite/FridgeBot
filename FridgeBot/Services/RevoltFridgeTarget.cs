@@ -2,6 +2,7 @@ using System.Drawing;
 using System.Text;
 using Foxite.Common.Notifications;
 using Microsoft.Extensions.Logging;
+using RestSharp.Extensions;
 using Revcord;
 using Revcord.Entities;
 using Revcord.Revolt;
@@ -18,7 +19,7 @@ public class RevoltFridgeTarget : BaseFridgeTarget {
 	public override bool Supports(ChatClient client) => client is RevoltChatClient;
 	
 	protected async override Task<EntityId> ExecuteCreateAsync(FridgeEntry entry, IMessage message) {
-		IChannel fridgeChannel = await message.Client.GetChannelAsync(entry.FridgeMessageId);
+		IChannel fridgeChannel = await message.Client.GetChannelAsync(entry.Server.ChannelId);
 		IMessage fridgeMessage = await fridgeChannel.SendMessageAsync(GetFridgeMessageBuilder(entry, message, null));
 		return fridgeMessage.Id;
 	}

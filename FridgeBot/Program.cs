@@ -34,7 +34,7 @@ using IHost host = Host.CreateDefaultBuilder(args)
 		isc.Configure<DiscordConfig>(hbc.Configuration.GetSection("Discord"));
 		isc.Configure<RevoltConfig>(hbc.Configuration.GetSection("Revolt"));
 		
-		isc.TryAddEnumerable(ServiceDescriptor.Singleton<ChatClient>(isp => new DiscordChatClient(new DSharpPlus.DiscordConfiguration {
+		isc.TryAddEnumerable(ServiceDescriptor.Singleton<ChatClient, DiscordChatClient>(isp => new DiscordChatClient(new DSharpPlus.DiscordConfiguration {
 			Token = isp.GetRequiredService<IOptions<DiscordConfig>>().Value.Token,
 			Intents = DSharpPlus.DiscordIntents.GuildMessages | DSharpPlus.DiscordIntents.GuildMembers | DSharpPlus.DiscordIntents.GuildMessageReactions | DSharpPlus.DiscordIntents.Guilds,
 			LoggerFactory = isp.GetRequiredService<ILoggerFactory>(),
@@ -42,7 +42,7 @@ using IHost host = Host.CreateDefaultBuilder(args)
 			MessageCacheSize = 0
 		})));
 
-		isc.TryAddEnumerable(ServiceDescriptor.Singleton<ChatClient>(isp => new RevoltChatClient(isp.GetRequiredService<IOptions<RevoltConfig>>().Value.Token)));
+		isc.TryAddEnumerable(ServiceDescriptor.Singleton<ChatClient, RevoltChatClient>(isp => new RevoltChatClient(isp.GetRequiredService<IOptions<RevoltConfig>>().Value.Token)));
 
 			
 		isc.AddSingleton<ChatClientService>();
