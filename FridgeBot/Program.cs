@@ -121,14 +121,9 @@ namespace FridgeBot {
 				}
 			}
 
-			discord.MessageReactionAdded += (sender, ea) => {
-				_ = OnReactionModifiedAsync(ea.Message, ea.Emoji, true);
-				return Task.CompletedTask;
-			};
-			discord.MessageReactionRemoved += (sender, ea) => {
-				_ = OnReactionModifiedAsync(ea.Message, ea.Emoji, false);
-				return Task.CompletedTask;
-			};
+			// Run these synchronously, because otherwise you'll get concurrent handlers that will end up trying to create a new FridgeEntry
+			discord.MessageReactionAdded += (sender, ea) => OnReactionModifiedAsync(ea.Message, ea.Emoji, true);
+			discord.MessageReactionRemoved += (sender, ea) => OnReactionModifiedAsync(ea.Message, ea.Emoji, false);
 
 			discord.ClientErrored += (_, eventArgs) => notifications.SendNotificationAsync($"Exception in {eventArgs.EventName}", eventArgs.Exception);
 			
