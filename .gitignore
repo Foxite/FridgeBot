@@ -4,4 +4,4 @@
 .vs
 .vscode
 *.env
-
+*.DotSettings.user

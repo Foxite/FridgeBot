@@ -27,5 +27,7 @@ namespace FridgeBot {
 		public ServerFridge Server { get; set; }
 		
 		public ICollection<FridgeEntryEmote> Emotes { get; set; }
+		
+		public FridgeEntry() {}
 	}
 }
