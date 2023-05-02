@@ -9,6 +9,7 @@ namespace FridgeBot.Tests;
 public class Tests {
 	private FridgeDbContext? m_DbContext;
 	private Spy<IFridgeTarget> m_MockTarget;
+	private Spy<IFridgeTarget> m_WrongTarget;
 	private FridgeService m_FridgeService;
 	private SpyGenerator m_SpyGenerator;
 	private ServerFridge m_ServerFridge;
@@ -47,7 +48,14 @@ public class Tests {
 		// The functions don't do anything to actually deliver fridge messages.
 		// However, during a test, I can assert that executing an (async) delegate results in a particular function being called on the mock object, and I can perform assertions on its parameters.
 		m_MockTarget = m_SpyGenerator.CreateSpy<IFridgeTarget>();
-		m_FridgeService = new FridgeService(m_DbContext, m_MockTarget.Object);
+		m_MockTarget.ConfigureCall(ift => ift.Supports(null!), (_, _) => true, true);
+		m_MockTarget.ConfigureIgnoring(ift => ift.Supports(null!), (_, _) => true, true);
+		
+		m_WrongTarget = m_SpyGenerator.CreateSpy<IFridgeTarget>();
+		m_WrongTarget.ConfigureCall(ift => ift.Supports(null!), (_, _) => true, false);
+		m_MockTarget.ConfigureIgnoring(ift => ift.Supports(null!), (_, _) => true, true);
+		
+		m_FridgeService = new FridgeService(m_DbContext, new [] { m_MockTarget.Object, m_WrongTarget.Object });
 	}
 	
 	[OneTimeTearDown]
@@ -62,6 +70,7 @@ public class Tests {
 
 		Assert.Multiple(() => {
 			Assert.That(m_MockTarget, Was.NoOtherCalls());
+			Assert.That(m_WrongTarget, Was.NoOtherCalls());
 		});
 	}
 
@@ -72,6 +81,7 @@ public class Tests {
 
 		Assert.Multiple(() => {
 			Assert.That(m_MockTarget, Was.NoOtherCalls());
+			Assert.That(m_WrongTarget, Was.NoOtherCalls());
 		});
 	}
 
@@ -82,6 +92,7 @@ public class Tests {
 
 		Assert.Multiple(() => {
 			Assert.That(m_MockTarget, Was.NoOtherCalls());
+			Assert.That(m_WrongTarget, Was.NoOtherCalls());
 		});
 	}
 
@@ -92,6 +103,7 @@ public class Tests {
 
 		Assert.Multiple(() => {
 			Assert.That(m_MockTarget, Was.NoOtherCalls());
+			Assert.That(m_WrongTarget, Was.NoOtherCalls());
 		});
 	}
 
@@ -102,14 +114,15 @@ public class Tests {
 
 		Assert.Multiple(() => {
 			Assert.That(m_MockTarget, Was.NoOtherCalls());
+			Assert.That(m_WrongTarget, Was.NoOtherCalls());
 		});
 	}
 
 	[Test]
 	public async Task SufficientReactionToNewEntry() {
-		// TODO need to add return value configuration to CorporateEspionage for this test case to work
-		// Previously, it returned the default ulong which is fine for EntityFramework
-		// Now it returns a default EntityId which is not fine as UnderlyingId is null
+		EntityId fridgeMessageId = EntityId.Of(234);
+		m_MockTarget.ConfigureCall(ift => ift.CreateFridgeMessageAsync(null!, null!), (_, _) => true, () => Task.FromResult(fridgeMessageId));
+		
 		var mockMessage = new MockMessage(false, m_ServerFridge.Id, EntityId.Of(456), EntityId.Of(789), new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero), reactions: new MockReaction(new MockEmoji("hello!"), 2));
 		await m_FridgeService.ProcessReactionAsync(mockMessage);
 
@@ -121,8 +134,10 @@ public class Tests {
 					.Times(1)
 					.With(0, "fridgeEntry", Has.Property(nameof(FridgeEntry.MessageId)).EqualTo(mockMessage.Id))
 					.With(0, "fridgeEntry", Has.Property(nameof(FridgeEntry.ServerId)).EqualTo(m_ServerFridge.Id))
+					.With(0, "fridgeEntry", Has.Property(nameof(FridgeEntry.FridgeMessageId)).EqualTo(fridgeMessageId))
 			);
 			Assert.That(m_MockTarget, Was.NoOtherCalls());
+			Assert.That(m_WrongTarget, Was.NoOtherCalls());
 		});
 	}
 
@@ -160,6 +175,7 @@ public class Tests {
 					.With(0, "fridgeEntry", Has.Property(nameof(FridgeEntry.FridgeMessageId)).EqualTo(fridgeMessageId))
 			);
 			Assert.That(m_MockTarget, Was.NoOtherCalls());
+			Assert.That(m_WrongTarget, Was.NoOtherCalls());
 		});
 	}
 
@@ -191,16 +207,19 @@ public class Tests {
 			Assert.That(
 				m_MockTarget,
 				Was
-					.Called(() => m_MockTarget.Object.DeleteFridgeMessageAsync(null!))
+					.Called(() => m_MockTarget.Object.DeleteFridgeMessageAsync(null!, null!))
 					.Times(1)
 					.With(0, "fridgeEntry", Has.Property(nameof(FridgeEntry.MessageId)).EqualTo(mockMessage.Id))
 					.With(0, "fridgeEntry", Has.Property(nameof(FridgeEntry.FridgeMessageId)).EqualTo(fridgeMessageId))
+					//.With(0, "client", )
 			);
 			Assert.That(m_MockTarget, Was.NoOtherCalls());
+			Assert.That(m_WrongTarget, Was.NoOtherCalls());
 		});
 	}
 }
 
+// There's a todo in Revcord that will add proper mocking and unit testing support, use these as soon as possible.
 public class MockMessage : IMessage {
 	private readonly bool m_IsSelf;
 	
@@ -219,7 +238,7 @@ public class MockMessage : IMessage {
 	
 	public EntityId AuthorId => throw new NotImplementedException();
 	public bool IsSystemMessage => throw new NotImplementedException();
-	public ChatClient Client => throw new NotImplementedException();
+	public ChatClient Client => null!;
 
 	public MockMessage(bool isSelf, int? guildId, int channelId, int id, DateTimeOffset creationTimestamp, params IReaction[] reactions)
 		: this(isSelf, guildId.HasValue ? EntityId.Of(guildId.Value) : null, EntityId.Of(channelId), EntityId.Of(id), creationTimestamp, reactions) { }

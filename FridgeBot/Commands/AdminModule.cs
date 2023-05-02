@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Qmmands;
+using Revcord;
 using Revcord.Commands;
 using Revcord.Entities;
 
@@ -21,14 +22,16 @@ public class AdminModule : Qmmands.ModuleBase<RevcordCommandContext> {
 		} else {
 			fridge.ChannelId = fridgeChannel.Id;
 		}
-		await Context.RespondAsync("OK");
+		
+		// TODO return results
+		await Context.Message.SendReplyAsync("OK");
 	}
 
 	[Command("emote")]
 	public async Task UpdateEmote(IEmoji emoji, int minimumToAdd, int maximumToRemove) {
 		ServerFridge? fridge = await DbContext.Servers.FindAsync(Context.Guild!.Id);
 		if (fridge == null) {
-			await Context.RespondAsync("You must use init first");
+			await Context.Message.SendReplyAsync("You must use init first");
 		} else {
 			ServerEmote? emote = await DbContext.Emotes.FindAsync(Context.Guild.Id, emoji.ToString());
 			if (emote == null) {
@@ -41,7 +44,7 @@ public class AdminModule : Qmmands.ModuleBase<RevcordCommandContext> {
 
 			emote.MinimumToAdd = minimumToAdd;
 			emote.MaximumToRemove = maximumToRemove;
-			await Context.RespondAsync("OK");
+			await Context.Message.SendReplyAsync("OK");
 		}
 	}
 
@@ -49,7 +52,7 @@ public class AdminModule : Qmmands.ModuleBase<RevcordCommandContext> {
 	public async Task GetEmotes() {
 		ServerFridge? fridge = await DbContext.Servers.Include(server => server.Emotes).FirstOrDefaultAsync(server => server.Id == Context.Guild!.Id);
 		if (fridge == null) {
-			await Context.RespondAsync("You must use init first");
+			await Context.Message.SendReplyAsync("You must use init first");
 		} else {
 			var channel = await Context.Client.GetChannelAsync(fridge.ChannelId);
 			var message = $"Fridge channel: {channel.MentionString}\nEmotes:";
@@ -58,7 +61,7 @@ public class AdminModule : Qmmands.ModuleBase<RevcordCommandContext> {
 				message += $"\n- {emote.EmoteString} to add: {emote.MinimumToAdd}; to remove: {emote.MaximumToRemove}";
 			}
 
-			await Context.RespondAsync(message);
+			await Context.Message.SendReplyAsync(message);
 		}
 	}
 
@@ -66,14 +69,14 @@ public class AdminModule : Qmmands.ModuleBase<RevcordCommandContext> {
 	public async Task DeleteEmote(IEmoji emoji) {
 		ServerFridge? fridge = await DbContext.Servers.FindAsync(Context.Guild!.Id);
 		if (fridge == null) {
-			await Context.RespondAsync("You must use init first");
+			await Context.Message.SendReplyAsync("You must use init first");
 		} else {
 			ServerEmote? emote = await DbContext.Emotes.FindAsync(Context.Guild.Id, emoji.ToString());
 			if (emote == null) {
-				await Context.RespondAsync("Not found");
+				await Context.Message.SendReplyAsync("Not found");
 			} else {
 				DbContext.Emotes.Remove(emote);
-				await Context.RespondAsync("OK");
+				await Context.Message.SendReplyAsync("OK");
 			}
 		}
 	}

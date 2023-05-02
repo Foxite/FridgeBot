@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <RevcordSource>Production</RevcordSource>
+        <RevcordSource>Development</RevcordSource>
     </PropertyGroup>
 
     <PropertyGroup>
