@@ -9,26 +9,13 @@ using Revcord.Revolt;
 
 namespace FridgeBot;
 
-public class RevoltFridgeTarget : BaseFridgeTarget {
-	private readonly HttpClient m_Http;
-
-	public RevoltFridgeTarget(ILogger<RevoltFridgeTarget> logger, NotificationService notifications, HttpClient http) : base(logger, notifications) {
-		m_Http = http;
-	}
-
-	public override bool Supports(ChatClient client) => client is RevoltChatClient;
+public class RevoltFridgeMessageRenderer : ChatClient.MessageRenderer<RevoltChatClient, RenderableFridgeMessage> {
+	public RevoltFridgeMessageRenderer(RevoltChatClient chatClient) : base(chatClient) { }
 	
-	protected async override Task<EntityId> ExecuteCreateAsync(FridgeEntry entry, IMessage message) {
-		IChannel fridgeChannel = await message.Client.GetChannelAsync(entry.Server.ChannelId);
-		IMessage fridgeMessage = await fridgeChannel.SendMessageAsync(GetFridgeMessageBuilder(entry, message, null));
-		return fridgeMessage.Id;
-	}
-
-	protected override Task ExecuteUpdateAsync(FridgeEntry entry, IMessage message, IMessage existingFridgeMessage) {
-		return existingFridgeMessage.UpdateAsync(GetFridgeMessageBuilder(entry, message, existingFridgeMessage));
-	}
+	protected override Task<IMessage> SendMessageAsync(EntityId channelId, RenderableFridgeMessage contents, EntityId? responseTo) => ChatClient.SendMessageAsync(channelId, GetFridgeMessageBuilder(contents.FridgeEntry, contents.Message));
+	protected override Task<IMessage> UpdateMessageAsync(EntityId channelId, EntityId messageId, RenderableFridgeMessage contents) => ChatClient.UpdateMessageAsync(channelId, messageId, GetFridgeMessageBuilder(contents.FridgeEntry, contents.Message));
 	
-	private MessageBuilder GetFridgeMessageBuilder(FridgeEntry fridgeEntry, IMessage message, IMessage? existingFridgeMessage) {
+	private MessageBuilder GetFridgeMessageBuilder(FridgeEntry fridgeEntry, IMessage message) {
 		var messageBuilder = new MessageBuilder();
 		
 		var reactions = new Dictionary<IEmoji, int>();

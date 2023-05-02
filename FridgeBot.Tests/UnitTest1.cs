@@ -9,7 +9,6 @@ namespace FridgeBot.Tests;
 public class Tests {
 	private FridgeDbContext? m_DbContext;
 	private Spy<IFridgeTarget> m_MockTarget;
-	private Spy<IFridgeTarget> m_WrongTarget;
 	private FridgeService m_FridgeService;
 	private SpyGenerator m_SpyGenerator;
 	private ServerFridge m_ServerFridge;
@@ -48,14 +47,8 @@ public class Tests {
 		// The functions don't do anything to actually deliver fridge messages.
 		// However, during a test, I can assert that executing an (async) delegate results in a particular function being called on the mock object, and I can perform assertions on its parameters.
 		m_MockTarget = m_SpyGenerator.CreateSpy<IFridgeTarget>();
-		m_MockTarget.ConfigureCall(ift => ift.Supports(null!), (_, _) => true, true);
-		m_MockTarget.ConfigureIgnoring(ift => ift.Supports(null!), (_, _) => true, true);
 		
-		m_WrongTarget = m_SpyGenerator.CreateSpy<IFridgeTarget>();
-		m_WrongTarget.ConfigureCall(ift => ift.Supports(null!), (_, _) => true, false);
-		m_MockTarget.ConfigureIgnoring(ift => ift.Supports(null!), (_, _) => true, true);
-		
-		m_FridgeService = new FridgeService(m_DbContext, new [] { m_MockTarget.Object, m_WrongTarget.Object });
+		m_FridgeService = new FridgeService(m_DbContext, m_MockTarget.Object);
 	}
 	
 	[OneTimeTearDown]
@@ -70,7 +63,6 @@ public class Tests {
 
 		Assert.Multiple(() => {
 			Assert.That(m_MockTarget, Was.NoOtherCalls());
-			Assert.That(m_WrongTarget, Was.NoOtherCalls());
 		});
 	}
 
@@ -81,7 +73,6 @@ public class Tests {
 
 		Assert.Multiple(() => {
 			Assert.That(m_MockTarget, Was.NoOtherCalls());
-			Assert.That(m_WrongTarget, Was.NoOtherCalls());
 		});
 	}
 
@@ -92,7 +83,6 @@ public class Tests {
 
 		Assert.Multiple(() => {
 			Assert.That(m_MockTarget, Was.NoOtherCalls());
-			Assert.That(m_WrongTarget, Was.NoOtherCalls());
 		});
 	}
 
@@ -103,7 +93,6 @@ public class Tests {
 
 		Assert.Multiple(() => {
 			Assert.That(m_MockTarget, Was.NoOtherCalls());
-			Assert.That(m_WrongTarget, Was.NoOtherCalls());
 		});
 	}
 
@@ -114,7 +103,6 @@ public class Tests {
 
 		Assert.Multiple(() => {
 			Assert.That(m_MockTarget, Was.NoOtherCalls());
-			Assert.That(m_WrongTarget, Was.NoOtherCalls());
 		});
 	}
 
@@ -137,7 +125,6 @@ public class Tests {
 					.With(0, "fridgeEntry", Has.Property(nameof(FridgeEntry.FridgeMessageId)).EqualTo(fridgeMessageId))
 			);
 			Assert.That(m_MockTarget, Was.NoOtherCalls());
-			Assert.That(m_WrongTarget, Was.NoOtherCalls());
 		});
 	}
 
@@ -175,7 +162,6 @@ public class Tests {
 					.With(0, "fridgeEntry", Has.Property(nameof(FridgeEntry.FridgeMessageId)).EqualTo(fridgeMessageId))
 			);
 			Assert.That(m_MockTarget, Was.NoOtherCalls());
-			Assert.That(m_WrongTarget, Was.NoOtherCalls());
 		});
 	}
 
@@ -214,7 +200,6 @@ public class Tests {
 					//.With(0, "client", )
 			);
 			Assert.That(m_MockTarget, Was.NoOtherCalls());
-			Assert.That(m_WrongTarget, Was.NoOtherCalls());
 		});
 	}
 }

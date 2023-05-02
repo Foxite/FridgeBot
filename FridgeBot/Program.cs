@@ -34,22 +34,33 @@ using IHost host = Host.CreateDefaultBuilder(args)
 		isc.Configure<DiscordConfig>(hbc.Configuration.GetSection("Discord"));
 		isc.Configure<RevoltConfig>(hbc.Configuration.GetSection("Revolt"));
 		
-		isc.TryAddEnumerable(ServiceDescriptor.Singleton<ChatClient, DiscordChatClient>(isp => new DiscordChatClient(new DSharpPlus.DiscordConfiguration {
-			Token = isp.GetRequiredService<IOptions<DiscordConfig>>().Value.Token,
-			Intents = DSharpPlus.DiscordIntents.GuildMessages | DSharpPlus.DiscordIntents.GuildMembers | DSharpPlus.DiscordIntents.GuildMessageReactions | DSharpPlus.DiscordIntents.Guilds,
-			LoggerFactory = isp.GetRequiredService<ILoggerFactory>(),
-			MinimumLogLevel = LogLevel.Information,
-			MessageCacheSize = 0
-		})));
+		isc.TryAddEnumerable(ServiceDescriptor.Singleton<ChatClient, DiscordChatClient>(isp => {
+			var client = new DiscordChatClient(new DSharpPlus.DiscordConfiguration {
+				Token = isp.GetRequiredService<IOptions<DiscordConfig>>().Value.Token,
+				Intents = DSharpPlus.DiscordIntents.GuildMessages | DSharpPlus.DiscordIntents.GuildMembers | DSharpPlus.DiscordIntents.GuildMessageReactions | DSharpPlus.DiscordIntents.Guilds,
+				LoggerFactory = isp.GetRequiredService<ILoggerFactory>(),
+				MinimumLogLevel = LogLevel.Information,
+				MessageCacheSize = 0
+			});
+			
+			client.AddRenderer(new DiscordFridgeMessageRenderer(client, isp.GetRequiredService<ILogger<DiscordFridgeMessageRenderer>>(), isp.GetRequiredService<NotificationService>(), isp.GetRequiredService<HttpClient>()));
+			
+			return client;
+		}));
 
-		isc.TryAddEnumerable(ServiceDescriptor.Singleton<ChatClient, RevoltChatClient>(isp => new RevoltChatClient(isp.GetRequiredService<IOptions<RevoltConfig>>().Value.Token)));
+		isc.TryAddEnumerable(ServiceDescriptor.Singleton<ChatClient, RevoltChatClient>(isp => {
+			var client = new RevoltChatClient(isp.GetRequiredService<IOptions<RevoltConfig>>().Value.Token);
+			
+			client.AddRenderer(new RevoltFridgeMessageRenderer(client));
+			
+			return client;
+		}));
 
 			
 		isc.AddSingleton<ChatClientService>();
 
 		isc.AddSingleton<HttpClient>();
-		isc.TryAddEnumerable(ServiceDescriptor.Transient<IFridgeTarget, RevoltFridgeTarget>());
-		isc.TryAddEnumerable(ServiceDescriptor.Transient<IFridgeTarget, DiscordFridgeTarget>());
+		isc.AddSingleton<IFridgeTarget, ProductionFridgeTarget>();
 		isc.AddScoped<FridgeService>();
 		
 		isc.ConfigureDbContext<FridgeDbContext>();

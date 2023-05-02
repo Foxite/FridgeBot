@@ -20,30 +20,29 @@ using SharpReaction = DSharpPlus.Entities.DiscordReaction;
 
 namespace FridgeBot;
 
-public class DiscordFridgeTarget : BaseFridgeTarget {
+public class DiscordFridgeMessageRenderer : ChatClient.MessageRenderer<DiscordChatClient, RenderableFridgeMessage> {
+	private readonly ILogger<DiscordFridgeMessageRenderer> m_Logger;
+	private readonly NotificationService m_Notifications;
 	private readonly HttpClient m_Http;
 
-	public DiscordFridgeTarget(ILogger<DiscordFridgeTarget> logger, NotificationService notifications, HttpClient http) : base(logger, notifications) {
+	public DiscordFridgeMessageRenderer(DiscordChatClient chatClient, ILogger<DiscordFridgeMessageRenderer> logger, NotificationService notifications, HttpClient http) : base(chatClient) {
+		m_Logger = logger;
+		m_Notifications = notifications;
 		m_Http = http;
 	}
 
-	public override bool Supports(ChatClient client) => client is DiscordChatClient;
-
-	protected async override Task<EntityId> ExecuteCreateAsync(FridgeEntry entry, IMessage rvMessage) {
-		var discord = (DiscordChatClient) rvMessage.Client;
-		SharpMessage message = ((RevMessage) rvMessage).Entity;
-		SharpChannel? fridgeChannel = await discord.DSharp.GetChannelAsync((ulong) entry.Server.ChannelId.UnderlyingId);
-		SharpMessage? fridgeMessage = await fridgeChannel.SendMessageAsync(GetFridgeMessageBuilder(entry, message, null, discord));
-		return EntityId.Of(fridgeMessage.Id);
-	}
-
-	protected override Task ExecuteUpdateAsync(FridgeEntry entry, IMessage message, IMessage existingFridgeMessage) {
-		SharpMessage sharpMessage = ((RevMessage) message).Entity;
-		SharpMessage existingFridgeSharpMessage = ((RevMessage) existingFridgeMessage).Entity; 
-		return existingFridgeSharpMessage.ModifyAsync(GetFridgeMessageBuilder(entry, sharpMessage, existingFridgeSharpMessage, (DiscordChatClient) message.Client));
+	protected async override Task<IMessage> SendMessageAsync(EntityId channelId, RenderableFridgeMessage contents, EntityId? responseTo) {
+		SharpChannel? fridgeChannel = await ChatClient.DSharp.GetChannelAsync((ulong) channelId.UnderlyingId);
+		return new RevMessage(ChatClient, await fridgeChannel.SendMessageAsync(GetFridgeMessageBuilder(contents.FridgeEntry, ((RevMessage) contents.Message).Entity, true)));
 	}
 	
-	private Action<DiscordMessageBuilder> GetFridgeMessageBuilder(FridgeEntry fridgeEntry, SharpMessage message, SharpMessage? existingFridgeMessage, DiscordChatClient discord) {
+	protected async override Task<IMessage> UpdateMessageAsync(EntityId channelId, EntityId messageId, RenderableFridgeMessage contents) {
+		SharpChannel? fridgeChannel = await ChatClient.DSharp.GetChannelAsync((ulong) channelId.UnderlyingId);
+		SharpMessage? fridgeMessage = await fridgeChannel.GetMessageAsync((ulong) messageId.UnderlyingId);
+		return new RevMessage(ChatClient, await fridgeMessage.ModifyAsync(GetFridgeMessageBuilder(contents.FridgeEntry, ((RevMessage) contents.Message).Entity, false)));
+	}
+
+	private Action<DiscordMessageBuilder> GetFridgeMessageBuilder(FridgeEntry fridgeEntry, SharpMessage message, bool downloadAttachments) {
 		return dmb => {
 			string? replyingToNickname = null;
 			if (message.ReferencedMessage != null) {
@@ -56,7 +55,7 @@ public class DiscordFridgeTarget : BaseFridgeTarget {
 			
 			var reactions = new Dictionary<SharpEmoji, int>();
 			foreach (SharpReaction reaction in message.Reactions) {
-				if (fridgeEntry.Emotes.Any(emote => emote.EmoteString == new RevEmoji(discord, reaction.Emoji).ToString())) { // use invariant string
+				if (fridgeEntry.Emotes.Any(emote => emote.EmoteString == new RevEmoji(ChatClient, reaction.Emoji).ToString())) { // use invariant string
 					reactions[reaction.Emoji] = reaction.Count;
 				}
 			}
@@ -124,7 +123,7 @@ public class DiscordFridgeTarget : BaseFridgeTarget {
 				imageUrl = message.Attachments.FirstOrDefault(att => att.MediaType != null && att.MediaType.StartsWith("image/"))?.Url;
 				if (imageUrl == null) {
 					DiscordAttachment? videoAttachment = message.Attachments.FirstOrDefault(att => att.MediaType != null && att.MediaType.StartsWith("video/"));
-					if (videoAttachment != null && (existingFridgeMessage == null || existingFridgeMessage.Attachments.Count == 0)) {
+					if (videoAttachment != null && downloadAttachments) {
 						try {
 							using Stream download = m_Http.GetStreamAsync(videoAttachment.Url).Result;
 							var memory = new MemoryStream();
@@ -132,8 +131,8 @@ public class DiscordFridgeTarget : BaseFridgeTarget {
 							memory.Position = 0;
 							dmb.AddFile(videoAttachment.FileName, memory);
 						} catch (Exception e) {
-							Logger.LogError(e, "Error downloading attachment {VideoUrl}", videoAttachment.Url);
-							Notifications.SendNotificationAsync($"Error downloading attachment {videoAttachment.Url}, ignoring", e);
+							m_Logger.LogError(e, "Error downloading attachment {VideoUrl}", videoAttachment.Url);
+							m_Notifications.SendNotificationAsync($"Error downloading attachment {videoAttachment.Url}, ignoring", e);
 						}
 					}
 				}

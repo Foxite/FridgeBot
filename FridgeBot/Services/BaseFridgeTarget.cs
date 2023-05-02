@@ -1,3 +1,4 @@
+/*
 using Foxite.Common.Notifications;
 using Microsoft.Extensions.Logging;
 using Revcord;
@@ -43,3 +44,4 @@ public abstract class BaseFridgeTarget : IFridgeTarget {
 	protected abstract Task<EntityId> ExecuteCreateAsync(FridgeEntry entry, IMessage message);
 	protected abstract Task ExecuteUpdateAsync(FridgeEntry entry, IMessage message, IMessage existingFridgeMessage);
 }
+*/
