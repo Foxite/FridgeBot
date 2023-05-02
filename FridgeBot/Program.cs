@@ -120,6 +120,7 @@ async Task OnReactionModifiedAsync(ReactionModifiedArgs args) {
 	await fridgeService.ProcessReactionAsync(args.Message);
 }
 
+// TODO Run these synchronously, because otherwise you'll get concurrent handlers that will end up trying to create a new FridgeEntry
 chat.ReactionAdded += OnReactionModifiedAsync;
 chat.ReactionRemoved += OnReactionModifiedAsync;
 
