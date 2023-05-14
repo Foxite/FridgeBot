@@ -21,7 +21,7 @@ public class FridgeService {
 		}
 
 		ServerFridge? fridgeServer = await m_DbContext.Servers.Include(server => server.Emotes).FirstOrDefaultAsync(server => server.Id == message.GuildId);
-		if (fridgeServer != null) {
+		if (fridgeServer != null && message.CreationTimestamp >= fridgeServer.InitializedAt) {
 			FridgeEntry? fridgeEntry = await m_DbContext.Entries.Include(entry => entry.Emotes).FirstOrDefaultAsync(entry => entry.ServerId == fridgeServer.Id && entry.MessageId == message.Id);
 			bool newEntry = false;
 			if (fridgeEntry == null) {
