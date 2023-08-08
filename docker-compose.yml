@@ -1,0 +1,35 @@
+version: "3.3"
+
+services:
+  database:
+    image: "postgres:13.3"
+    environment:
+      POSTGRES_DB: fridgebot-data
+      POSTGRES_PASSWORD: test123
+      POSTGRES_USER: fridgebot
+    networks:
+      - fridgebot-network
+    volumes:
+      - database-data:/var/lib/postgresql/data/ # persist data even if container shuts down
+  bot:
+    build:
+      dockerfile: FridgeBot/Dockerfile
+      context: .
+    environment:
+      FRIDGE_Database__Database: fridgebot-data
+      FRIDGE_Database__Password: test123
+      FRIDGE_Database__Username: fridgebot
+      FRIDGE_Database__Host: database
+      FRIDGE_Database__Port: 5432
+    env_file:
+      - fridgebot.env # place bot token and url webhook (optional) in this file, by env var FRIDGE__Discord__Token and FRIDGE__DiscordNotifications__WebhookUrl
+    depends_on:
+      - database
+    networks:
+      - fridgebot-network
+
+networks:
+  fridgebot-network:
+
+volumes:
+  database-data: # named volumes can be managed easier using docker-compose

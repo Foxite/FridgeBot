@@ -6,18 +6,6 @@ using Microsoft.Extensions.Options;
 
 namespace FridgeBot {
 	public static class Util {
-		public static IServiceCollection ConfigureDbContext<TDbContext>(this IServiceCollection isc) where TDbContext : DbContext {
-			isc.AddDbContext<TDbContext>((isp, dbcob) => {
-				ConnectionStringsConfiguration connectionStrings = isp.GetRequiredService<IOptions<ConnectionStringsConfiguration>>().Value;
-				_ = connectionStrings.Mode switch {
-					ConnectionStringsConfiguration.Backend.Sqlite => dbcob.UseSqlite(connectionStrings.GetConnectionString<TDbContext>()),
-					ConnectionStringsConfiguration.Backend.Postgres => dbcob.UseNpgsql(connectionStrings.GetConnectionString<TDbContext>()),
-					//_ => throw new ArgumentOutOfRangeException(nameof(connectionStrings.Mode))
-				};
-			}, ServiceLifetime.Transient);
-			return isc;
-		}
-
 		/// <summary>
 		/// Get the string used to store the emoji in the database as a ServerEmote.
 		/// 

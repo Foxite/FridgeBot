@@ -4,10 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FridgeBot", "FridgeBot/Frid
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution items", "Solution items", "{53F31E40-2C5F-471F-A0CD-0C6D5E81DA0C}"
 	ProjectSection(SolutionItems) = preProject
-		postgres.env = postgres.env
 		fridgebot.env = fridgebot.env
-		docker-compose.dev.yml = docker-compose.dev.yml
-		docker-compose.prod.yml = docker-compose.prod.yml
+		docker-compose.yml = docker-compose.yml
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FridgeBot.Tests", "FridgeBot.Tests\FridgeBot.Tests.csproj", "{123A4A07-1699-4F7D-8CBD-15B80D16F4AC}"

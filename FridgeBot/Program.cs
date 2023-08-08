@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 using Qmmands;
 
 namespace FridgeBot {
@@ -32,9 +33,6 @@ namespace FridgeBot {
 					builder.AddExceptionDemystifyer();
 				})
 				.ConfigureServices((hbc, isc) => {
-					//isc.Configure<DiscordConfiguration>(hbc.Configuration.GetSection("Discord"));
-					isc.Configure<ConnectionStringsConfiguration>(hbc.Configuration.GetSection("ConnectionStrings"));
-					
 					isc.AddSingleton(isp => {
 						var config = new DiscordConfiguration {
 							Token = hbc.Configuration.GetSection("Discord").GetValue<string>("Token"),
@@ -50,9 +48,17 @@ namespace FridgeBot {
 					isc.AddScoped<FridgeService>();
 					isc.AddSingleton<IFridgeTarget, DiscordFridgeTarget>();
 					
-					isc.ConfigureDbContext<FridgeDbContext>();
-					
-					isc.AddNotifications().AddDiscord(hbc.Configuration.GetSection("DiscordNotifications"));
+					isc.AddDbContext<FridgeDbContext>(dbcob => {
+						var dbConfig = hbc.Configuration.GetSection("Database").Get<NpgsqlConnectionStringBuilder>();
+						dbcob.UseNpgsql(dbConfig.ConnectionString);
+					}, ServiceLifetime.Scoped);
+
+					INotificationBuilder notifications = isc.AddNotifications();
+					IConfigurationSection notificationConfig = hbc.Configuration.GetSection("DiscordNotifications");
+					IConfigurationSection webhookUrl = notificationConfig.GetSection("WebhookUrl");
+					if (webhookUrl.Exists() && !string.IsNullOrWhiteSpace(webhookUrl.Value)) {
+						notifications.AddDiscord(notificationConfig);
+					}
 
 					isc.AddSingleton<CommandService>();
 				})
@@ -85,15 +91,20 @@ namespace FridgeBot {
 
 			discord.MessageCreated += async (sender, eventArgs) => {
 				if (eventArgs.Message.Content.StartsWith(discord.CurrentUser.Mention)) {
-					IResult result = await commands.ExecuteAsync(eventArgs.Message.Content.Substring(discord.CurrentUser.Mention.Length), new DSharpPlusCommandContext(eventArgs.Message, host.Services));
+					await using var serviceScope = host.Services.CreateAsyncScope();
+					var context = new DSharpPlusCommandContext(eventArgs.Message, serviceScope.ServiceProvider);
+					IResult result = await commands.ExecuteAsync(eventArgs.Message.Content.Substring(discord.CurrentUser.Mention.Length), context);
 					if (result is not SuccessfulResult) {
 						string? message;
 						if (result is ChecksFailedResult cfr) {
 							message = string.Join("\n", cfr.FailedChecks.Select(tuple => tuple.Result).Where(cr => !cr.IsSuccessful).Select(cr => $"- {cr.FailureReason}"));
 						} else {
+							if (result is CommandExecutionFailedResult cefr) {
+								logger.LogError(cefr.Exception, "Error while executing {Command}", context.Command?.Name ?? "null");
+							}
 							message = result.ToString();
 						}
-						
+
 						await eventArgs.Message.RespondAsync(message);
 					}
 				}
