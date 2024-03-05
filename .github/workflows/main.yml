@@ -15,7 +15,7 @@ jobs:
     - name: Publish Docker
       uses: elgohr/Publish-Docker-Github-Action@3.04
       env:
-        FRIDGEBOT_VERSION: ${{ steps.compute-version-code.outputs.release-version }}"
+        FRIDGEBOT_VERSION: ${{ steps.compute-version-code.outputs.release-version }}
       with:
         name: fridge-bot
         dockerfile: FridgeBot/Dockerfile
