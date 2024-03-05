@@ -14,11 +14,15 @@ services:
     volumes:
       - database-data:/var/lib/postgresql/data/ # persist data even if container shuts down
   bot:
-    build: FridgeBot
+    build:
+      context: .
+      dockerfile: FridgeBot/Dockerfile
+    env_file:
+      - fridgebot.env
     environment:
-      FRIDGE_Discord__Token: "try not to commit this line."
+      #FRIDGE_Discord__Token: "try not to commit this line."
       FRIDGE_ConnectionStrings__Mode: Postgres
-      FRIDGE_ConnectionStrings__FridgeDbContext: Host=database; Port=5432; Username=fridgebot; Password=fridgebot
+      FRIDGE_ConnectionStrings__FridgeDbContext: Host=database; Port=5432; Username=fridgebot; Password=test123
     depends_on:
       - database
     networks:

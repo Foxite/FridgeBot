@@ -9,8 +9,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - id: compute-version-code
+      shell: bash
+      run: echo "release-version=$(echo ${GITHUB_SHA:0:8})" >> $GITHUB_OUTPUT
     - name: Publish Docker
       uses: elgohr/Publish-Docker-Github-Action@3.04
+      env:
+        FRIDGEBOT_VERSION: ${{ steps.compute-version-code.outputs.release-version }}"
       with:
         name: fridge-bot
         dockerfile: FridgeBot/Dockerfile
@@ -20,3 +25,4 @@ jobs:
         password: ${{ secrets.REPO_PASSWD }}
         default_branch: master
         no_push: ${{ !(github.event_name == 'push' && github.ref == 'refs/heads/master') }}
+        buildargs: FRIDGEBOT_VERSION

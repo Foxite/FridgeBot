@@ -87,6 +87,10 @@ namespace FridgeBot {
 				if (eventArgs.Message.Content.StartsWith(discord.CurrentUser.Mention)) {
 					IResult result = await commands.ExecuteAsync(eventArgs.Message.Content.Substring(discord.CurrentUser.Mention.Length), new DSharpPlusCommandContext(eventArgs.Message, host.Services));
 					if (result is not SuccessfulResult) {
+						if (result is CommandExecutionFailedResult cefr) {
+							logger.LogError(cefr.Exception, "Error handling command: {Reason}", cefr.FailureReason);
+						}
+						
 						string? message;
 						if (result is ChecksFailedResult cfr) {
 							message = string.Join("\n", cfr.FailedChecks.Select(tuple => tuple.Result).Where(cr => !cr.IsSuccessful).Select(cr => $"- {cr.FailureReason}"));
