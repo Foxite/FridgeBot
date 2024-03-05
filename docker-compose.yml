@@ -1,0 +1,31 @@
+version: "3.3"
+
+services:
+  database:
+    image: "postgres:13.3"
+    environment:
+      POSTGRES_USER: fridgebot
+      POSTGRES_PASSWORD: test123
+      POSTGRES_DB: fridgebot-data
+    ports:
+      - "5432:5432"
+    networks:
+      - fridgebot-network
+    volumes:
+      - database-data:/var/lib/postgresql/data/ # persist data even if container shuts down
+  bot:
+    build: FridgeBot
+    environment:
+      FRIDGE_Discord__Token: "try not to commit this line."
+      FRIDGE_ConnectionStrings__Mode: Postgres
+      FRIDGE_ConnectionStrings__FridgeDbContext: Host=database; Port=5432; Username=fridgebot; Password=fridgebot
+    depends_on:
+      - database
+    networks:
+      - fridgebot-network
+
+networks:
+  fridgebot-network:
+
+volumes:
+  database-data: # named volumes can be managed easier using docker-compose
