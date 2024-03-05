@@ -177,7 +177,7 @@ public class DiscordFridgeTarget : IFridgeTarget {
 					copyEmbed = copyEmbedBuilder.Build();
 				} else if (embedBuilder.ImageUrl == null && copyEmbedBuilder.ImageUrl != null) {
 					embedBuilder.ImageUrl = copyEmbedBuilder.ImageUrl;
-				} else if (embedBuilder.ImageUrl == null && copyEmbedBuilder.Url != null && copyEmbedBuilder.Url.StartsWith("https://cdn.discordapp.com/attachments/")) {
+				} else if (embedBuilder.ImageUrl == null && copyEmbedBuilder.Url != null && (copyEmbedBuilder.Url.StartsWith("https://cdn.discordapp.com/attachments/") || copyEmbedBuilder.Url.StartsWith("https://media.discordapp.net/attachments/"))) {
 					embedBuilder.ImageUrl = copyEmbedBuilder.Url;
 				}
 			}
