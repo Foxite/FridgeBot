@@ -19,7 +19,7 @@ public class DiscordFridgeTarget : IFridgeTarget {
 		m_Http = http;
 		m_DiscordClient = discordClient;
 	}
-		
+	
 	public async Task<ulong> CreateFridgeMessageAsync(FridgeEntry fridgeEntry, IDiscordMessage message) {
 		// TODO find a way to skip intermediate discord api calls and send/update/delete the message directly
 		DiscordChannel fridgeChannel = await m_DiscordClient.GetChannelAsync(fridgeEntry.Server.ChannelId);
@@ -44,7 +44,7 @@ public class DiscordFridgeTarget : IFridgeTarget {
 			await fridgeMessage.DeleteAsync();
 		} catch (NotFoundException) { }
 	}
-		
+	
 	private Action<DiscordMessageBuilder> GetFridgeMessageBuilder(DiscordMessage message, FridgeEntry fridgeEntry, DiscordMessage? existingFridgeMessage) {
 		return dmb => {
 			string? replyingToNickname = null;
@@ -62,7 +62,7 @@ public class DiscordFridgeTarget : IFridgeTarget {
 					reactions[reaction.Emoji] = reaction.Count;
 				}
 			}
-				
+			
 			var content = new StringBuilder();
 			int i = 0;
 			foreach ((DiscordEmoji? emoji, _) in reactions) {
@@ -74,11 +74,11 @@ public class DiscordFridgeTarget : IFridgeTarget {
 			}
 
 			content.AppendLine(" moment in " + message.Channel.Mention + "!");
-				
+			
 			foreach ((DiscordEmoji? emoji, int count) in reactions) {
 				content.AppendLine($"{emoji.ToString()} x{count}"); // See above
 			}
-				
+			
 			dmb.Content = content.ToString();
 
 			string authorName;
@@ -155,7 +155,7 @@ public class DiscordFridgeTarget : IFridgeTarget {
 				Timestamp = message.Timestamp,
 				Url = message.JumpLink.ToString()
 			};
-				
+			
 			embedBuilder.AddField("Jump to message", Formatter.MaskedUrl("Click here to jump", message.JumpLink));
 
 			if (message.ReferencedMessage != null) {
@@ -165,7 +165,7 @@ public class DiscordFridgeTarget : IFridgeTarget {
 				}
 				embedBuilder.AddField(fieldName, Formatter.MaskedUrl("Click here to jump", message.ReferencedMessage.JumpLink));
 			}
-
+			
 			DiscordEmbed? copyEmbed = null;
 
 			if (message.Embeds.Count > 0 && message.Embeds[0].Type != "auto_moderation_message") {
@@ -175,11 +175,13 @@ public class DiscordFridgeTarget : IFridgeTarget {
 				// Do not copy empty embeds.
 				if (copyEmbedBuilder.Author != null || !string.IsNullOrEmpty(copyEmbedBuilder.Title) || !string.IsNullOrEmpty(copyEmbedBuilder.Description) || copyEmbedBuilder.Fields.Count > 0) {
 					copyEmbed = copyEmbedBuilder.Build();
-				} else if (copyEmbedBuilder.ImageUrl != null && embedBuilder.ImageUrl == null) {
+				} else if (embedBuilder.ImageUrl == null && copyEmbedBuilder.ImageUrl != null) {
 					embedBuilder.ImageUrl = copyEmbedBuilder.ImageUrl;
+				} else if (embedBuilder.ImageUrl == null && copyEmbedBuilder.Url != null && copyEmbedBuilder.Url.StartsWith("https://cdn.discordapp.com/attachments/")) {
+					embedBuilder.ImageUrl = copyEmbedBuilder.Url;
 				}
 			}
-				
+			
 			dmb.AddEmbed(embedBuilder);
 
 			if (copyEmbed != null) {
