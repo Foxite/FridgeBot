@@ -38,7 +38,7 @@ namespace FridgeBot {
 					isc.AddSingleton(isp => {
 						var config = new DiscordConfiguration {
 							Token = hbc.Configuration.GetSection("Discord").GetValue<string>("Token"),
-							Intents = DiscordIntents.GuildMessages | DiscordIntents.GuildMembers | DiscordIntents.GuildMessageReactions | DiscordIntents.Guilds,
+							Intents = DiscordIntents.GuildMessages | DiscordIntents.GuildMembers | DiscordIntents.GuildMessageReactions | DiscordIntents.Guilds | DiscordIntents.GuildEmojis,
 							LoggerFactory = isp.GetRequiredService<ILoggerFactory>(),
 							MinimumLogLevel = LogLevel.Information,
 							MessageCacheSize = 0
