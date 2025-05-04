@@ -51,8 +51,11 @@ namespace FridgeBot {
 					isc.AddSingleton<IFridgeTarget, DiscordFridgeTarget>();
 					
 					isc.ConfigureDbContext<FridgeDbContext>();
-					
-					isc.AddNotifications().AddDiscord(hbc.Configuration.GetSection("DiscordNotifications"));
+
+					var notificationBuilder = isc.AddNotifications();
+					if (!string.IsNullOrWhiteSpace(hbc.Configuration.GetValue<string>("DiscordNotifications:WebhookUrl"))) {
+						notificationBuilder.AddDiscord(hbc.Configuration.GetSection("DiscordNotifications"));
+					}
 
 					isc.AddSingleton<CommandService>();
 				})
@@ -63,7 +66,7 @@ namespace FridgeBot {
 			}
 
 			var logger = host.Services.GetRequiredService<ILogger<Program>>();
-			var notifications = host.Services.GetRequiredService<NotificationService>();
+			var notifications = host.Services.GetService<NotificationService>();
 			var discord = host.Services.GetRequiredService<DiscordClient>();
 			
 			async Task HandleHandlerException(string name, Exception exception, DiscordMessage? message) {
@@ -75,7 +78,9 @@ namespace FridgeBot {
 					   channel {N(message?.Channel?.Id)} ({N(message?.Channel?.Name)})
 					   {(message?.Channel?.Guild != null ? $"guild {N(message?.Channel?.Guild?.Id)} ({N(message?.Channel?.Guild?.Name)})" : "")}";
 				logger.LogCritical(exception, errorMessage);
-				await notifications.SendNotificationAsync(errorMessage, exception.Demystify());
+				if (notifications != null) {
+					await notifications.SendNotificationAsync(errorMessage, exception.Demystify());
+				}
 			}
 
 			var commands = host.Services.GetRequiredService<CommandService>();
