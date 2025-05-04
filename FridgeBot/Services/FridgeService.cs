@@ -31,25 +31,28 @@ public class FridgeService {
 					Server = fridgeServer,
 					ChannelId = message.ChannelId,
 					MessageId = message.Id,
-					Emotes = new List<FridgeEntryEmote>()
+					Emotes = new List<FridgeEntryEmote>(),
 				};
 			}
 			
 			// Update FridgeEntry
-			foreach (FridgeEntryEmote removeEmote in
-			         from entryEmote in fridgeEntry.Emotes
-			         let reaction = message.Reactions.FirstOrDefault(reaction => reaction.Emoji.ToStringInvariant() == entryEmote.EmoteString)
-			         where reaction == null || reaction.Count < fridgeServer.Emotes.First(serverEmote => serverEmote.EmoteString == entryEmote.EmoteString).MaximumToRemove
-			         let item = fridgeEntry.Emotes.FirstOrDefault(emote => emote.EmoteString == entryEmote.EmoteString)
-			         where item != null
-			         select item) {
-				fridgeEntry.Emotes.Remove(removeEmote);
+			foreach (FridgeEntryEmote entryEmote in fridgeEntry.Emotes) {
+				IDiscordReaction? reaction = message.Reactions.FirstOrDefault(reaction => reaction.Emoji.ToStringInvariant() == entryEmote.EmoteString);
+				if (reaction == null) {
+					fridgeEntry.Emotes.Remove(entryEmote);
+				} else {
+					// ServerEmote might have been removed
+					ServerEmote? serverEmote = fridgeServer.Emotes.FirstOrDefault(serverEmote => serverEmote.EmoteString == entryEmote.EmoteString);
+					if (serverEmote == null || reaction.Count < serverEmote.MaximumToRemove) {
+						fridgeEntry.Emotes.Remove(entryEmote);
+					}
+				}
 			}
 			
 			foreach (FridgeEntryEmote addEmote in
 			         from reaction in message.Reactions
 			         let serverEmote = fridgeServer.Emotes.FirstOrDefault(emote => emote.EmoteString == reaction.Emoji.ToStringInvariant())
-			         where serverEmote != null && reaction.Count >= serverEmote.MinimumToAdd && !fridgeEntry.Emotes.Any(entryEmote => entryEmote.EmoteString == serverEmote.EmoteString)
+			         where serverEmote != null && reaction.Count >= serverEmote.MinimumToAdd && fridgeEntry.Emotes.All(entryEmote => entryEmote.EmoteString != serverEmote.EmoteString)
 			         let entryEmote = new FridgeEntryEmote { EmoteString = reaction.Emoji.ToStringInvariant() }
 			         select entryEmote) {
 				fridgeEntry.Emotes.Add(addEmote);
