@@ -41,7 +41,7 @@ namespace FridgeBot {
 							Intents = DiscordIntents.GuildMessages | DiscordIntents.GuildMembers | DiscordIntents.GuildMessageReactions | DiscordIntents.Guilds | DiscordIntents.GuildEmojis,
 							LoggerFactory = isp.GetRequiredService<ILoggerFactory>(),
 							MinimumLogLevel = LogLevel.Information,
-							MessageCacheSize = 0
+							MessageCacheSize = 0,
 						};
 						return new DiscordClient(config);
 					});
@@ -108,7 +108,9 @@ namespace FridgeBot {
 				}
 			};
 
-			async Task OnReactionModifiedAsync(DiscordMessage message, DiscordEmoji emoji, bool added) {
+			SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
+			async Task OnReactionModifiedAsync(DiscordMessage message) {
+				await semaphore.WaitAsync();
 				try {
 					// Acquire additional data such as the author, and refresh reaction counts
 					try {
@@ -127,12 +129,19 @@ namespace FridgeBot {
 					await fridgeService.ProcessReactionAsync(new RealDiscordMessage(message));
 				} catch (Exception ex) {
 					await HandleHandlerException("OnReactionModifiedAsync", ex, message);
+				} finally {
+					semaphore.Release();
 				}
 			}
 
-			// Run these synchronously, because otherwise you'll get concurrent handlers that will end up trying to create a new FridgeEntry
-			discord.MessageReactionAdded += (sender, ea) => OnReactionModifiedAsync(ea.Message, ea.Emoji, true);
-			discord.MessageReactionRemoved += (sender, ea) => OnReactionModifiedAsync(ea.Message, ea.Emoji, false);
+			discord.MessageReactionAdded += (sender, ea) => {
+				_ = OnReactionModifiedAsync(ea.Message);
+				return Task.CompletedTask;
+			};
+			discord.MessageReactionRemoved += (sender, ea) => {
+				_ = OnReactionModifiedAsync(ea.Message);
+				return Task.CompletedTask;
+			};
 
 			discord.ClientErrored += (_, eventArgs) => notifications.SendNotificationAsync($"Exception in {eventArgs.EventName}", eventArgs.Exception);
 			
