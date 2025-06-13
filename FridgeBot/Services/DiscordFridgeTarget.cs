@@ -94,19 +94,21 @@ public class DiscordFridgeTarget : IFridgeTarget {
 				authorAvatarUrl = message.Author.AvatarUrl;
 			}
 
+			authorName = Formatter.Sanitize(authorName);
+
 			string description = message.MessageType switch {
 				MessageType.Default or MessageType.Reply => message.Content, // No need to check the length because the max length of a discord message is 4000 with nitro, but the max length of an embed description is 4096.
-				MessageType.ChannelPinnedMessage => $"{authorName} pinned a message to the channel.",
-				MessageType.ApplicationCommand => $"{(message.Interaction.User is DiscordMember interactionMember ? interactionMember.Nickname : message.Interaction.User.Username)} used ${message.Interaction.Name}",
+				MessageType.ChannelPinnedMessage => $"{authorName} pinned {Formatter.MaskedUrl("a message", message.Reference.Message.JumpLink)} to the channel.",
+				MessageType.ApplicationCommand => $"{Formatter.Sanitize(message.Interaction.User is DiscordMember interactionMember ? interactionMember.Nickname : message.Interaction.User.Username)} used ${Formatter.Sanitize(message.Interaction.Name)}",
 				MessageType.GuildMemberJoin => $"{authorName} has joined the server!",
 				MessageType.UserPremiumGuildSubscription => $"{authorName} has just boosted the server!",
-				MessageType.TierOneUserPremiumGuildSubscription => $"{authorName} has just boosted the server! {message.Channel.Guild.Name} has achieved **Level 1**!",
-				MessageType.TierTwoUserPremiumGuildSubscription => $"{authorName} has just boosted the server! {message.Channel.Guild.Name} has achieved **Level 2**!",
-				MessageType.TierThreeUserPremiumGuildSubscription => $"{authorName} has just boosted the server! {message.Channel.Guild.Name} has achieved **Level 3**!",
+				MessageType.TierOneUserPremiumGuildSubscription => $"{authorName} has just boosted the server! {Formatter.Sanitize(message.Channel.Guild.Name)} has achieved {Formatter.Bold("Level 1")}!",
+				MessageType.TierTwoUserPremiumGuildSubscription => $"{authorName} has just boosted the server! {Formatter.Sanitize(message.Channel.Guild.Name)} has achieved {Formatter.Bold("Level 2")}!",
+				MessageType.TierThreeUserPremiumGuildSubscription => $"{authorName} has just boosted the server! {Formatter.Sanitize(message.Channel.Guild.Name)} has achieved {Formatter.Bold("Level 3")}!",
 				MessageType.RecipientAdd => $"{authorName} joined the thread!", // Does not actually seem to happen
-				MessageType.RecipientRemove => $"{authorName} removed {(message.MentionedUsers[0] as DiscordMember)?.Nickname ?? message.MentionedUsers[0].Username} from the thread.",
-				MessageType.AutoModAlert => $"AutoMod has blocked a message from {(message.Author as DiscordMember)?.DisplayName ?? message.Author.Username}",
-				MessageType.ChannelFollowAdd => $"{authorName} has added {message.Content} to this channel. Its most important updates will show up here.",
+				MessageType.RecipientRemove => $"{authorName} removed {Formatter.Sanitize((message.MentionedUsers[0] as DiscordMember)?.Nickname ?? message.MentionedUsers[0].Username)} from the thread.",
+				MessageType.AutoModAlert => $"AutoMod has blocked a message from {Formatter.Sanitize((message.Author as DiscordMember)?.DisplayName ?? message.Author.Username)}",
+				MessageType.ChannelFollowAdd => $"{authorName} has added {Formatter.Sanitize(message.Content)} to this channel. Its most important updates will show up here.",
 				MessageType.Call => $"{authorName} has started a call.",
 				/*
 				MessageType.ChannelNameChange => "ChannelNameChange", // should not happen in guilds
@@ -118,7 +120,7 @@ public class DiscordFridgeTarget : IFridgeTarget {
 				MessageType.GuildInviteReminder => "GuildInviteReminder",
 				MessageType.ContextMenuCommand => "ContextMenuCommand",
 				*/
-				_ => $"Unknown message type: {message.MessageType.ToString()}"
+				_ => $"Unknown message type: {message.MessageType.ToString()}",
 			};
 
 			string? imageUrl = null;
