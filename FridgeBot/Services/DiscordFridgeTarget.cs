@@ -123,6 +123,17 @@ public class DiscordFridgeTarget : IFridgeTarget {
 				_ => $"Unknown message type: {message.MessageType.ToString()}",
 			};
 
+			if (message.Stickers.Count > 0 && string.IsNullOrWhiteSpace(description)) {
+				bool first = true;
+				foreach (DiscordMessageSticker sticker in message.Stickers) {
+					if (!first) {
+						description += "\n";
+					}
+					description += $"Sticker: {sticker.Name}";
+					first = false;
+				}
+			}
+
 			string? imageUrl = null;
 			if (message.Attachments.Count > 0) {
 				imageUrl = message.Attachments.FirstOrDefault(att => att.MediaType != null && att.MediaType.StartsWith("image/"))?.Url;
